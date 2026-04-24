@@ -23,7 +23,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.EzycomMerchant"
     },
     "web": {
       "output": "static",
@@ -41,6 +46,13 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ezycom a besoin d'accéder à vos photos.",
+          "cameraPermission": "Ezycom a besoin d'accéder à votre caméra."
         }
       ]
     ],

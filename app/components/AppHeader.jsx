@@ -15,14 +15,14 @@ import {
   View,
 } from 'react-native';
 
-const SIDEBAR_WIDTH  = 270;
-const { width: SW }  = Dimensions.get('window');
+const SIDEBAR_WIDTH = 270;
+const { width: SW } = Dimensions.get('window');
 
 const PLAN_COLORS = {
-  GRATUIT:    { bg: '#E8EEF4', text: '#6A7A8A', border: '#C8D4E0' },
-  ESSOR:      { bg: '#E8F5E9', text: '#2E7D32', border: '#A5D6A7' },
+  GRATUIT: { bg: '#E8EEF4', text: '#6A7A8A', border: '#C8D4E0' },
+  ESSOR: { bg: '#E8F5E9', text: '#2E7D32', border: '#A5D6A7' },
   PROSPERITE: { bg: '#FFF3E0', text: '#E65100', border: '#FFCC80' },
-  EMPIRE:     { bg: '#FFF0ED', text: '#C0392B', border: '#FFAB91' },
+  EMPIRE: { bg: '#FFF0ED', text: '#C0392B', border: '#FFAB91' },
 };
 
 const LIGHT = {
@@ -35,36 +35,33 @@ const DARK = {
 };
 
 const MENU = [
-  { type: 'link', icon: 'grid-outline',          label: 'Tableau de bord',    route: '/(merchant)/dashboard' },
+  { type: 'link', icon: 'grid-outline', label: 'Tableau de bord', route: '/(merchant)/dashboard' },
   {
     type: 'section', icon: 'cube-outline', label: 'Stock',
     children: [
-      { label: 'Catégories',   route: '/(merchant)/stock/categories' },
-      { label: 'Produits',     route: '/(merchant)/stock/produits/produits' },
+      { label: 'Catégories', route: '/(merchant)/stock/categories' },
+      { label: 'Produits', route: '/(merchant)/stock/produits/produits' },
       { label: 'Entrée Stock', route: '/(merchant)/stock/stock-in' },
       { label: 'Sortie Stock', route: '/(merchant)/stock/stock-out' },
     ],
   },
-  { type: 'link', icon: 'cart-outline',           label: 'Ajouter Vente',      route: '/(merchant)/ajouter-vente' },
-  { type: 'link', icon: 'clipboard-outline',      label: 'Ajouter Commande',   route: '/(merchant)/new-order' },
+  { type: 'link', icon: 'cart-outline', label: 'Ajouter Vente', route: '/(merchant)/ajouter-vente' },
+  { type: 'link', icon: 'clipboard-outline', label: 'Ajouter Commande', route: '/(merchant)/new-order' },
   {
     type: 'section', icon: 'list-outline', label: 'Commandes',
     children: [
-      { label: 'Toutes',            route: '/(merchant)/orders' },
-      { label: 'Crées',             route: '/(merchant)/orders?status=pending' },
-      { label: 'Validées',          route: '/(merchant)/orders?status=confirmed' },
-      { label: 'À enlevées',        route: '/(merchant)/orders?status=pickup' },
-      { label: 'Chez transporteur', route: '/(merchant)/orders?status=transit' },
-      { label: 'En cours',          route: '/(merchant)/orders?status=shipping' },
-      { label: 'Livrés',            route: '/(merchant)/orders?status=delivered' },
-      { label: 'Retour',            route: '/(merchant)/orders?status=return' },
-      { label: 'Annuler',           route: '/(merchant)/orders?status=cancelled' },
+      { label: 'Toutes', route: '/(merchant)/commandes' },
+      { label: 'En attente', route: '/(merchant)/commandes?etat=0' },
+      { label: 'Confirmées', route: '/(merchant)/commandes?etat=1' },
+      { label: 'Dispatchées', route: '/(merchant)/commandes?etat=2' },
+      { label: 'Livrées', route: '/(merchant)/commandes?etat=5' },
+      { label: 'Annulées', route: '/(merchant)/commandes?etat=7' },
     ],
   },
-  { type: 'link', icon: 'mail-outline',           label: 'Réclamations',       route: '/(merchant)/claims' },
-  { type: 'link', icon: 'chatbubble-outline',     label: 'Messenger',          route: '/(merchant)/messenger' },
-  { type: 'link', icon: 'people-outline',         label: 'Mes clients',        route: '/(merchant)/clients' },
-  { type: 'link', icon: 'person-add-outline',     label: 'Mon Équipe',         route: '/(merchant)/team' },
+  { type: 'link', icon: 'mail-outline', label: 'Réclamations', route: '/(merchant)/claims' },
+  { type: 'link', icon: 'chatbubble-outline', label: 'Messenger', route: '/(merchant)/messenger' },
+  { type: 'link', icon: 'people-outline', label: 'Mes clients', route: '/(merchant)/clients' },
+  { type: 'link', icon: 'person-add-outline', label: 'Mon Équipe', route: '/(merchant)/team' },
   {
     type: 'section', icon: 'cash-outline', label: 'Finance',
     children: [{ label: 'Caisse', route: '/(merchant)/finance' }],
@@ -72,18 +69,18 @@ const MENU = [
   {
     type: 'section', icon: 'document-text-outline', label: 'Facturation',
     children: [
-      { label: 'Factures',                     route: '/(merchant)/invoices' },
+      { label: 'Factures', route: '/(merchant)/invoices' },
       { label: 'Ajouter une nouvelle facture', route: '/(merchant)/invoices/new' },
-      { label: 'Informations de facturation',  route: '/(merchant)/invoices/settings' },
+      { label: 'Informations de facturation', route: '/(merchant)/invoices/settings' },
     ],
   },
   {
     type: 'section', icon: 'globe-outline', label: 'ezy.ezycom.tn',
     children: [
-      { label: 'Paramètres',          route: '/(merchant)/site/settings' },
+      { label: 'Paramètres', route: '/(merchant)/site/settings' },
       { label: 'Produits recherchés', route: '/(merchant)/site/searched' },
-      { label: 'Produits en promo',   route: '/(merchant)/site/promo' },
-      { label: 'Vente Flash',         route: '/(merchant)/site/flash' },
+      { label: 'Produits en promo', route: '/(merchant)/site/promo' },
+      { label: 'Vente Flash', route: '/(merchant)/site/flash' },
     ],
   },
   { type: 'link', icon: 'car-outline', label: 'Mes Transporteurs', route: '/(merchant)/shippers' },
@@ -91,19 +88,19 @@ const MENU = [
 
 export default function AppHeader({ session, darkMode, onToggleDark, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [expanded,    setExpanded]    = useState({});
-  const [isOpen,      setIsOpen]      = useState(false);
+  const [expanded, setExpanded] = useState({});
+  const [isOpen, setIsOpen] = useState(false);
 
-  const slideAnim   = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   const T = darkMode ? DARK : LIGHT;
 
   const { user, shop } = session || {};
-  const plan      = (shop?.plan || 'gratuit').toUpperCase();
+  const plan = (shop?.plan || 'gratuit').toUpperCase();
   const planStyle = PLAN_COLORS[plan] || PLAN_COLORS.GRATUIT;
   const firstName = user?.name?.split(' ')[0] || 'Utilisateur';
-  const initials  = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
 
   const toggleSection = (label) =>
     setExpanded(prev => ({ ...prev, [label]: !prev[label] }));
@@ -111,15 +108,15 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
   const openSidebar = () => {
     setIsOpen(true);
     Animated.parallel([
-      Animated.timing(slideAnim,   { toValue: 0,              duration: 280, useNativeDriver: true }),
-      Animated.timing(overlayAnim, { toValue: 1,              duration: 280, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(overlayAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
     ]).start();
   };
 
   const closeSidebar = (callback) => {
     Animated.parallel([
-      Animated.timing(slideAnim,   { toValue: -SIDEBAR_WIDTH, duration: 240, useNativeDriver: true }),
-      Animated.timing(overlayAnim, { toValue: 0,              duration: 240, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 240, useNativeDriver: true }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
     ]).start(() => {
       setIsOpen(false);
       if (callback) callback();
@@ -172,7 +169,7 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
       {/* ── PROFILE DROPDOWN ── */}
       <Modal visible={profileOpen} transparent animationType="fade" onRequestClose={() => setProfileOpen(false)}>
         <Pressable style={s.profileOverlay} onPress={() => setProfileOpen(false)}>
-          <Pressable style={[s.profilePanel, darkMode && s.profilePanelDark]} onPress={() => {}}>
+          <Pressable style={[s.profilePanel, darkMode && s.profilePanelDark]} onPress={() => { }}>
             <View style={s.profileHeader}>
               <View style={s.profileAvatar}>
                 <Text style={s.profileAvatarText}>{initials}</Text>
@@ -284,19 +281,19 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12, paddingTop: 12, borderBottomWidth: 1,
   },
-  headerLeft:    { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  headerRight:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  hamburger:     { justifyContent: 'center', gap: 5, marginRight: 12, padding: 4 },
-  bar:           { width: 22, height: 2.5, borderRadius: 2 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hamburger: { justifyContent: 'center', gap: 5, marginRight: 12, padding: 4 },
+  bar: { width: 22, height: 2.5, borderRadius: 2 },
   greetingBlock: { flex: 1 },
-  greetingRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  greetingName:  { fontSize: 15, fontWeight: '800' },
-  greetingSub:   { fontSize: 11, marginTop: 1 },
-  planBadge:     { borderRadius: 50, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1.5 },
-  planText:      { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  iconBtn:       { padding: 6 },
-  avatar:        { width: 36, height: 36, borderRadius: 18, backgroundColor: '#29B6D8', justifyContent: 'center', alignItems: 'center' },
-  avatarText:    { fontSize: 13, fontWeight: '800', color: '#fff' },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  greetingName: { fontSize: 15, fontWeight: '800' },
+  greetingSub: { fontSize: 11, marginTop: 1 },
+  planBadge: { borderRadius: 50, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1.5 },
+  planText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  iconBtn: { padding: 6 },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#29B6D8', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontSize: 13, fontWeight: '800', color: '#fff' },
 
   overlay: {
     position: 'absolute', top: 0, left: 0,
@@ -313,38 +310,38 @@ const s = StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 16, elevation: 20,
   },
 
-  sidebarLogo:  { flexDirection: 'row', alignItems: 'baseline', paddingHorizontal: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
-  logoEzy:      { fontSize: 26, fontWeight: '800', color: '#fff' },
-  logoCom:      { fontSize: 26, fontWeight: '800', color: '#29B6D8' },
-  logoSub:      { fontSize: 10, color: '#5A8A9A', marginLeft: 4 },
-  menuItem:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
-  menuIcon:     { marginRight: 12 },
-  menuLabel:    { fontSize: 13, color: '#C8DCE8', fontWeight: '500' },
-  sectionHeader:{ flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 20, backgroundColor: '#152D42' },
+  sidebarLogo: { flexDirection: 'row', alignItems: 'baseline', paddingHorizontal: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
+  logoEzy: { fontSize: 26, fontWeight: '800', color: '#fff' },
+  logoCom: { fontSize: 26, fontWeight: '800', color: '#29B6D8' },
+  logoSub: { fontSize: 10, color: '#5A8A9A', marginLeft: 4 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
+  menuIcon: { marginRight: 12 },
+  menuLabel: { fontSize: 13, color: '#C8DCE8', fontWeight: '500' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 20, backgroundColor: '#152D42' },
   sectionLabel: { flex: 1, fontSize: 13, color: '#29B6D8', fontWeight: '700' },
-  childItem:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 28, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
-  childDot:     { width: 5, height: 5, borderRadius: 3, backgroundColor: '#5A8A9A', marginRight: 12 },
-  childLabel:   { fontSize: 12, color: '#A8C0D0' },
-  planCard:        { margin: 16, backgroundColor: '#fff', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 8 },
-  planCardEmoji:   { fontSize: 32, marginBottom: 8 },
-  planCardTitle:   { fontSize: 18, fontWeight: '800', color: '#1A2940', marginBottom: 4 },
-  planCardSub:     { fontSize: 12, color: '#8A9AAA', textAlign: 'center', marginBottom: 16 },
-  planCardBtn:     { backgroundColor: '#1A2940', borderRadius: 50, paddingVertical: 12, paddingHorizontal: 24, width: '100%' },
+  childItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 28, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
+  childDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#5A8A9A', marginRight: 12 },
+  childLabel: { fontSize: 12, color: '#A8C0D0' },
+  planCard: { margin: 16, backgroundColor: '#fff', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 8 },
+  planCardEmoji: { fontSize: 32, marginBottom: 8 },
+  planCardTitle: { fontSize: 18, fontWeight: '800', color: '#1A2940', marginBottom: 4 },
+  planCardSub: { fontSize: 12, color: '#8A9AAA', textAlign: 'center', marginBottom: 16 },
+  planCardBtn: { backgroundColor: '#1A2940', borderRadius: 50, paddingVertical: 12, paddingHorizontal: 24, width: '100%' },
   planCardBtnText: { color: '#fff', fontWeight: '700', textAlign: 'center', fontSize: 13 },
-  logoutBtn:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, marginBottom: 40, borderTopWidth: 1, borderTopColor: '#1E3A50' },
-  logoutLabel:  { fontSize: 13, color: '#E53E3E', fontWeight: '600' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, marginBottom: 40, borderTopWidth: 1, borderTopColor: '#1E3A50' },
+  logoutLabel: { fontSize: 13, color: '#E53E3E', fontWeight: '600' },
 
-  profileOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 70, paddingRight: 12 },
-  profilePanel:       { width: 240, backgroundColor: '#fff', borderRadius: 18, paddingVertical: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 10 },
-  profilePanelDark:   { backgroundColor: '#0F2035' },
-  profileHeader:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  profileAvatar:      { width: 44, height: 44, borderRadius: 22, backgroundColor: '#29B6D8', justifyContent: 'center', alignItems: 'center' },
-  profileAvatarText:  { fontSize: 16, fontWeight: '800', color: '#fff' },
-  profileName:        { fontSize: 14, fontWeight: '800', color: '#1A2940' },
-  profileRole:        { fontSize: 12, color: '#8A9AAA', marginTop: 2 },
-  profileDivider:     { height: 1, backgroundColor: '#E8EEF4' },
-  profileSectionLabel:{ fontSize: 11, color: '#B0BCC8', fontWeight: '700', letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  profileItem:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13 },
-  profileItemText:    { fontSize: 14, color: '#1A2940', fontWeight: '500' },
-  profileLogoutText:  { fontSize: 14, color: '#E53E3E', fontWeight: '600' },
+  profileOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 70, paddingRight: 12 },
+  profilePanel: { width: 240, backgroundColor: '#fff', borderRadius: 18, paddingVertical: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 10 },
+  profilePanelDark: { backgroundColor: '#0F2035' },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  profileAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#29B6D8', justifyContent: 'center', alignItems: 'center' },
+  profileAvatarText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  profileName: { fontSize: 14, fontWeight: '800', color: '#1A2940' },
+  profileRole: { fontSize: 12, color: '#8A9AAA', marginTop: 2 },
+  profileDivider: { height: 1, backgroundColor: '#E8EEF4' },
+  profileSectionLabel: { fontSize: 11, color: '#B0BCC8', fontWeight: '700', letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  profileItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13 },
+  profileItemText: { fontSize: 14, color: '#1A2940', fontWeight: '500' },
+  profileLogoutText: { fontSize: 14, color: '#E53E3E', fontWeight: '600' },
 });
