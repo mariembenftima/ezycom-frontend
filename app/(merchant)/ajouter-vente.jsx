@@ -46,7 +46,6 @@ export default function NewSale() {
       const res  = await fetch(`${API_URL}/api/products`, { headers: { 'X-Token': token } });
       const data = await res.json();
       if (data.success) {
-        // Gère les deux formats possibles : data.data.produits ou data.data (tableau direct)
         const list = data.data?.produits ?? data.data ?? [];
         setProducts(Array.isArray(list) ? list : []);
       }

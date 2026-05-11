@@ -1,16 +1,15 @@
-// app/(merchant)/commandes/detail.jsx
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image, Linking, Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image, Linking, Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '../../../config';
@@ -30,7 +29,6 @@ const STATUTS = [
 
 const getStatut = (etat) => STATUTS.find(s => s.etat === etat) || STATUTS[0];
 
-// ── Timeline ──────────────────────────────────────────────────────────────────
 const Timeline = ({ historique }) => (
   <View style={styles.timelineContainer}>
     {historique.map((h, i) => {
@@ -140,8 +138,6 @@ export default function DetailCommandeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
@@ -157,7 +153,6 @@ export default function DetailCommandeScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Client */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Client</Text>
           <Text style={styles.clientName}>{client}</Text>
@@ -181,7 +176,6 @@ export default function DetailCommandeScreen() {
           {commande.email   ? <Text style={styles.infoText}>{commande.email}</Text> : null}
         </View>
 
-        {/* Articles */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Articles ({articles.length})</Text>
           {articles.map((a, i) => (
@@ -206,7 +200,6 @@ export default function DetailCommandeScreen() {
           ))}
         </View>
 
-        {/* Totaux */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Totaux</Text>
           <View style={styles.totalRow}>
@@ -225,7 +218,6 @@ export default function DetailCommandeScreen() {
           </View>
         </View>
 
-        {/* Timeline */}
         {historique.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Historique</Text>
@@ -233,7 +225,6 @@ export default function DetailCommandeScreen() {
           </View>
         )}
 
-        {/* Actions statut */}
         {commande.etat !== 7 && (
           <View style={styles.actionsSection}>
             <TouchableOpacity
@@ -254,7 +245,6 @@ export default function DetailCommandeScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Modal changement statut */}
       <Modal visible={showStatutModal} transparent animationType="slide" onRequestClose={() => setShowStatutModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>

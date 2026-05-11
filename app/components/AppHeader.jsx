@@ -134,7 +134,6 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
     <>
       <StatusBar barStyle={T.barStyle} backgroundColor={T.statusBg} />
 
-      {/* ── HEADER BAR ── */}
       <View style={[s.header, {
         backgroundColor: T.header,
         borderBottomColor: T.headerBorder,
@@ -166,7 +165,6 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
         </View>
       </View>
 
-      {/* ── PROFILE DROPDOWN ── */}
       <Modal visible={profileOpen} transparent animationType="fade" onRequestClose={() => setProfileOpen(false)}>
         <Pressable style={s.profileOverlay} onPress={() => setProfileOpen(false)}>
           <Pressable style={[s.profilePanel, darkMode && s.profilePanelDark]} onPress={() => { }}>
@@ -204,14 +202,12 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
         </Pressable>
       </Modal>
 
-      {/* ── SIDEBAR OVERLAY ── */}
       {isOpen && (
         <Animated.View style={[s.overlay, { opacity: overlayAnim }]} pointerEvents="auto">
           <Pressable style={{ flex: 1 }} onPress={() => closeSidebar()} />
         </Animated.View>
       )}
 
-      {/* ── SIDEBAR PANEL ── */}
       <Animated.View style={[s.sidebar, { transform: [{ translateX: slideAnim }] }]}>
         <View style={s.sidebarLogo}>
           <Text style={s.logoEzy}>Ezy</Text>

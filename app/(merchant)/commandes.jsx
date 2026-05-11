@@ -1,4 +1,3 @@
-// app/(merchant)/commandes.jsx
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -22,7 +21,6 @@ const TEAL_BG = '#E8F8FC';
 const BORDER = '#E5E7EB';
 const GRAY = '#6B7280';
 
-// ── Statuts ───────────────────────────────────────────────────────────────────
 const STATUTS = [
     { etat: null, label: 'Tous', color: GRAY, bg: '#F3F4F6' },
     { etat: 0, label: 'En attente', color: '#D97706', bg: '#FEF3C7' },
@@ -34,7 +32,6 @@ const STATUTS = [
 
 const getStatut = (etat) => STATUTS.find(s => s.etat === etat) || STATUTS[0];
 
-// ── Composant carte commande ──────────────────────────────────────────────────
 const CommandeCard = ({ item, onPress }) => {
     const statut = getStatut(item.etat);
     const date = item.date_add ? new Date(item.date_add).toLocaleDateString('fr-FR') : '';
@@ -62,7 +59,6 @@ const CommandeCard = ({ item, onPress }) => {
     );
 };
 
-// ── Écran principal ───────────────────────────────────────────────────────────
 export default function CommandesScreen() {
     const [session, setSession] = useState(null);
     const [darkMode, setDarkMode] = useState(false);
@@ -147,7 +143,6 @@ export default function CommandesScreen() {
                 onLogout={() => router.replace('/(auth)/login')}
             />
 
-            {/* Stats rapides */}
             <View style={styles.statsRow}>
                 <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
                     <Text style={[styles.statVal, { color: '#D97706' }]}>{stats.en_attente || 0}</Text>
@@ -167,7 +162,7 @@ export default function CommandesScreen() {
                 </View>
             </View>
 
-            {/* Barre de recherche */}
+
             <View style={styles.searchRow}>
                 <TextInput
                     style={styles.searchInput}
@@ -178,7 +173,6 @@ export default function CommandesScreen() {
                 />
             </View>
 
-            {/* Filtres statut */}
             <FlatList
                 horizontal
                 data={STATUTS}
@@ -197,7 +191,6 @@ export default function CommandesScreen() {
                 )}
             />
 
-            {/* Liste */}
             {loading ? (
                 <View style={styles.center}>
                     <ActivityIndicator color={TEAL} size="large" />
