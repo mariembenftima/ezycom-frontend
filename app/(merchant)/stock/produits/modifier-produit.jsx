@@ -78,7 +78,7 @@ export default function ModifierProduitScreen() {
 
   const fetchCategories = async (token) => {
     try {
-      const res = await fetch(`${API_URL}/api/categories`, { headers: authHeaders(token) });
+      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: authHeaders(token) });
       const json = await res.json();
       if (json.success) setCategories(Array.isArray(json.data) ? json.data : (json.data?.categories ?? []));
     } catch (_) { }
@@ -86,7 +86,7 @@ export default function ModifierProduitScreen() {
 
   const fetchProduit = async (token) => {
     try {
-      const res = await fetch(`${API_URL}/api/products/${id}`, { headers: authHeaders(token) });
+      const res = await fetch(`${API_URL}/api/products/produits/products-get.php?id=${id}`, { headers: authHeaders(token) });
       const json = await res.json();
       if (json.success) {
         const p = json.data.produit;
@@ -172,7 +172,7 @@ export default function ModifierProduitScreen() {
         }
       });
 
-      const res = await fetch(`${API_URL}/api/products/${id}`, {
+      const res = await fetch(`${API_URL}/api/products/produits/products-update.php?id=${id}`, {
         method: 'POST', headers: { 'X-Token': session.token }, body: form,
       });
       const json = await res.json();

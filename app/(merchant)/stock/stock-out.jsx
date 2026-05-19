@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '../../../config';
@@ -20,40 +20,44 @@ import { loadSession } from '../../../utils/auth';
 import AppFooter from '../../components/AppFooter';
 import AppHeader from '../../components/AppHeader';
 
-const TEAL    = '#29B6D8';
+const TEAL = '#29B6D8';
 const DARK_BG = '#0F1B2D';
 
 const MOTIFS = [
-  { label: 'Perte',                    value: 'Perte' },
-  { label: 'Vente en magasin',         value: 'Vente en magasin' },
-  { label: 'Produit endommagé',        value: 'Produit endommagé' },
-  { label: 'Expiration',               value: 'Expiration' },
-  { label: 'Retour fournisseur',       value: 'Retour fournisseur' },
-  { label: 'Autre',                    value: 'Autre' },
+  { label: 'Perte', value: 'Perte' },
+  { label: 'Vente en magasin', value: 'Vente en magasin' },
+  { label: 'Produit endommagé', value: 'Produit endommagé' },
+  { label: 'Expiration', value: 'Expiration' },
+  { label: 'Retour fournisseur', value: 'Retour fournisseur' },
+  { label: 'Autre', value: 'Autre' },
 ];
 
 export default function SortieStockScreen() {
-  const [session,    setSession]    = useState(null);
-  const [darkMode,   setDarkMode]   = useState(false);
+  const [session, setSession] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    loadDarkMode().then(setDarkMode);
+  }, []);
   const [categories, setCategories] = useState([]);
-  const [produits,   setProduits]   = useState([]);
-  const [loading,    setLoading]    = useState(false);
+  const [produits, setProduits] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const [idCat,      setIdCat]      = useState(null);
-  const [idProduit,  setIdProduit]  = useState(null);
-  const [motif,      setMotif]      = useState('Perte');
-  const [qte,        setQte]        = useState('');
+  const [idCat, setIdCat] = useState(null);
+  const [idProduit, setIdProduit] = useState(null);
+  const [motif, setMotif] = useState('Perte');
+  const [qte, setQte] = useState('');
 
-  const [showCatModal,    setShowCatModal]    = useState(false);
-  const [showProdModal,   setShowProdModal]   = useState(false);
-  const [showMotifModal,  setShowMotifModal]  = useState(false);
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [showProdModal, setShowProdModal] = useState(false);
+  const [showMotifModal, setShowMotifModal] = useState(false);
 
-  const bg    = darkMode ? DARK_BG  : '#EEF4F8';
-  const card  = darkMode ? '#1A2A3D' : '#FFFFFF';
-  const txt   = darkMode ? '#FFFFFF' : '#0D1B2A';
-  const sub   = darkMode ? '#8899AA' : '#6A7A8A';
+  const bg = darkMode ? DARK_BG : '#EEF4F8';
+  const card = darkMode ? '#1A2A3D' : '#FFFFFF';
+  const txt = darkMode ? '#FFFFFF' : '#0D1B2A';
+  const sub = darkMode ? '#8899AA' : '#6A7A8A';
   const input = darkMode ? '#243347' : '#F8FAFC';
-  const bord  = darkMode ? '#2E4060' : '#CBD5E0';
+  const bord = darkMode ? '#2E4060' : '#CBD5E0';
 
   useEffect(() => {
     loadSession().then(s => {
@@ -67,15 +71,15 @@ export default function SortieStockScreen() {
 
   const fetchCategories = async (token) => {
     try {
-      const res  = await fetch(`${API_URL}/api/categories`, { headers: authHeaders(token) });
+      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: authHeaders(token) });
       const json = await res.json();
       if (json.success) setCategories(json.data?.categories ?? json.data ?? []);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const fetchProduits = async (token, catId) => {
     try {
-      const res  = await fetch(`${API_URL}/api/products?id_cat=${catId}&limit=999`, { headers: authHeaders(token) });
+      const res = await fetch(`${API_URL}/api/products/produits/products-list.php?id_cat=${catId}&limit=999`, { headers: authHeaders(token) });
       const json = await res.json();
       if (json.success) setProduits(json.data?.produits ?? []);
     } catch (_) { setProduits([]); }
@@ -90,21 +94,23 @@ export default function SortieStockScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!idProduit)   { Alert.alert('Erreur', 'Veuillez sélectionner un produit.'); return; }
+    if (!idProduit) { Alert.alert('Erreur', 'Veuillez sélectionner un produit.'); return; }
     if (!qte.trim() || parseInt(qte) <= 0) { Alert.alert('Erreur', 'Entrez une quantité valide.'); return; }
 
     setLoading(true);
     try {
-      const res  = await fetch(`${API_URL}/api/stock/sortie`, {
+      const res = await fetch(`${API_URL}/api/stock/stock-out.php`, {
         method: 'POST',
         headers: authHeaders(session.token),
         body: JSON.stringify({ id_produit: idProduit, qte: parseInt(qte), raison: motif }),
       });
       const json = await res.json();
       if (json.success) {
-        Alert.alert('Succès', json.message, [{ text: 'OK', onPress: () => {
-          setIdCat(null); setIdProduit(null); setQte(''); setMotif('Perte'); setProduits([]);
-        }}]);
+        Alert.alert('Succès', json.message, [{
+          text: 'OK', onPress: () => {
+            setIdCat(null); setIdProduit(null); setQte(''); setMotif('Perte'); setProduits([]);
+          }
+        }]);
       } else {
         Alert.alert('Erreur', json.message ?? 'Opération échouée.');
       }
@@ -115,9 +121,9 @@ export default function SortieStockScreen() {
     }
   };
 
-  const cats     = categories.filter(c => !c.parent_id);
-  const catNom   = cats.find(c => c.id === idCat)?.nom;
-  const prodNom  = produits.find(p => p.id === idProduit)?.nom;
+  const cats = categories.filter(c => !c.parent_id);
+  const catNom = cats.find(c => c.id === idCat)?.nom;
+  const prodNom = produits.find(p => p.id === idProduit)?.nom;
 
   const PickerModal = ({ visible, onClose, title, items, selected, onSelect, labelKey = 'nom' }) => (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -150,7 +156,11 @@ export default function SortieStockScreen() {
       <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
       <AppHeader
         session={session} darkMode={darkMode}
-        onToggleDark={() => setDarkMode(d => !d)}
+        onToggleDark={() => {
+          const next = !darkMode;
+          setDarkMode(next);
+          saveDarkMode(next);
+        }}
         onLogout={() => router.replace('/(auth)/login')}
       />
 
@@ -186,7 +196,7 @@ export default function SortieStockScreen() {
 
         <View style={[styles.card, { backgroundColor: card }]}>
 
-          {/* Catégorie + Produit */}
+
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.label, { color: sub }]}>Catégorie</Text>
@@ -217,7 +227,6 @@ export default function SortieStockScreen() {
             </View>
           </View>
 
-          {/* Motif + Quantité */}
           <View style={[styles.row, { marginTop: 16 }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.label, { color: sub }]}>Motif de sortie</Text>
@@ -263,21 +272,21 @@ export default function SortieStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1 },
-  scroll:       { paddingHorizontal: 16, paddingBottom: 80 },
-  breadcrumbRow:{ flexDirection: 'row', marginTop: 14, marginBottom: 4 },
-  breadcrumb:   { fontSize: 12 },
-  pageTitle:    { fontSize: 22, fontWeight: '800', marginBottom: 14 },
-  card:         { borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  row:          { flexDirection: 'row' },
-  label:        { fontSize: 13, marginBottom: 6 },
-  select:       { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, gap: 6 },
-  inputField:   { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14 },
-  submitBtn:    { backgroundColor: TEAL, borderRadius: 30, paddingVertical: 15, alignItems: 'center', marginTop: 28 },
-  submitTxt:    { color: '#fff', fontWeight: '700', fontSize: 16 },
-  overlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  pickerModal:  { width: '85%', borderRadius: 16, overflow: 'hidden', elevation: 8 },
-  pickerTitle:  { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 16, paddingVertical: 12 },
-  pickerItem:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' },
-  emptyTxt:     { textAlign: 'center', padding: 20, fontSize: 13 },
+  safe: { flex: 1 },
+  scroll: { paddingHorizontal: 16, paddingBottom: 80 },
+  breadcrumbRow: { flexDirection: 'row', marginTop: 14, marginBottom: 4 },
+  breadcrumb: { fontSize: 12 },
+  pageTitle: { fontSize: 22, fontWeight: '800', marginBottom: 14 },
+  card: { borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  row: { flexDirection: 'row' },
+  label: { fontSize: 13, marginBottom: 6 },
+  select: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, gap: 6 },
+  inputField: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14 },
+  submitBtn: { backgroundColor: TEAL, borderRadius: 30, paddingVertical: 15, alignItems: 'center', marginTop: 28 },
+  submitTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  pickerModal: { width: '85%', borderRadius: 16, overflow: 'hidden', elevation: 8 },
+  pickerTitle: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 16, paddingVertical: 12 },
+  pickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' },
+  emptyTxt: { textAlign: 'center', padding: 20, fontSize: 13 },
 });

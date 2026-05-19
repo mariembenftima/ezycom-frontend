@@ -25,7 +25,6 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.anonymous.EzycomMerchant"
@@ -54,11 +53,19 @@
           "photosPermission": "Ezycom a besoin d'accéder à vos photos.",
           "cameraPermission": "Ezycom a besoin d'accéder à votre caméra."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "458b9bb3-24e4-4e87-840c-94edd6424c16"
+      }
     }
   }
 }

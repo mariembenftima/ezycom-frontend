@@ -22,15 +22,19 @@ import AppFooter from '../../components/AppFooter';
 import AppHeader from '../../components/AppHeader';
 
 const TEAL = '#29B6D8';
-const BG   = '#EEF4F9';
+const BG = '#EEF4F9';
 
 export default function CategoriesScreen() {
-    const [session,    setSession]    = useState(null);
-    const [darkMode,   setDarkMode]   = useState(false);
+    const [session, setSession] = useState(null);
+    const [darkMode, setDarkMode] = useState(false);
+
+    useEffect(() => {
+        loadDarkMode().then(setDarkMode);
+    }, []);
     const [categories, setCategories] = useState([]);
-    const [loading,    setLoading]    = useState(true);
-    const [saving,     setSaving]     = useState(false);
-    const [modal,      setModal]      = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [modal, setModal] = useState(null);
 
     const slideAnim = useRef(new Animated.Value(900)).current;
 
@@ -45,21 +49,21 @@ export default function CategoriesScreen() {
     const fetchCategories = async (token) => {
         setLoading(true);
         try {
-            const res  = await fetch(`${API_URL}/api/categories`, {
+            const res = await fetch(`${API_URL}/api/categories/categories-list.php`, {
                 headers: authHeaders(token),
             });
             const data = await res.json();
             if (data.success) setCategories(data.data);
-        } catch {}
+        } catch { }
         finally { setLoading(false); }
     };
 
     const openModal = (type, cat = null) => {
         setModal({
             type,
-            id:      cat?.id   ?? null,
-            nom:     cat?.nom  ?? '',
-            sous:    cat?.sous ?? [],
+            id: cat?.id ?? null,
+            nom: cat?.nom ?? '',
+            sous: cat?.sous ?? [],
             newSubs: [''],
             delSubs: [],
         });
@@ -83,18 +87,18 @@ export default function CategoriesScreen() {
         setSaving(true);
         try {
             const isEdit = modal.type === 'edit';
-            const url    = isEdit
-                ? `${API_URL}/api/categories/${modal.id}`
-                : `${API_URL}/api/categories`;
+            const url = isEdit
+                ? `${API_URL}/api/categories/categories-update.php?id=${modal.id}`
+                : `${API_URL}/api/categories/categories-create.php`;
 
             const body = isEdit
                 ? { nom: modal.nom, sous_new: modal.newSubs.filter(s => s.trim()), sous_delete: modal.delSubs }
                 : { nom: modal.nom, sous: modal.newSubs.filter(s => s.trim()) };
 
-            const res  = await fetch(url, {
-                method:  isEdit ? 'PUT' : 'POST',
+            const res = await fetch(url, {
+                method: isEdit ? 'PUT' : 'POST',
                 headers: authHeaders(session.token),
-                body:    JSON.stringify(body),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
 
@@ -114,14 +118,14 @@ export default function CategoriesScreen() {
     const handleDelete = (cat) => {
         Alert.alert(
             'Supprimer',
-            `Supprimer "${cat.nom}" et toutes ses sous-catégories ?`,
+            `Supprimer "${cat.nom} (${cat.id})" et toutes ses sous-catégories ?`,
             [
                 { text: 'Annuler', style: 'cancel' },
                 {
                     text: 'Supprimer', style: 'destructive',
                     onPress: async () => {
                         try {
-                            const res  = await fetch(`${API_URL}/api/categories/${cat.id}`, {
+                            const res = await fetch(`${API_URL}/api/categories/categories-delete.php?id=${cat.id}`, {
                                 method: 'DELETE', headers: authHeaders(session.token),
                             });
                             const data = await res.json();
@@ -134,10 +138,10 @@ export default function CategoriesScreen() {
         );
     };
 
-    const updateNewSub  = (i, v)  => setModal(m => { const a = [...m.newSubs]; a[i] = v; return { ...m, newSubs: a }; });
-    const addNewSub     = ()      => setModal(m => ({ ...m, newSubs: [...m.newSubs, ''] }));
-    const removeNewSub  = (i)     => setModal(m => { const a = m.newSubs.filter((_, idx) => idx !== i); return { ...m, newSubs: a.length ? a : [''] }; });
-    const toggleDelSub  = (id)    => setModal(m => ({
+    const updateNewSub = (i, v) => setModal(m => { const a = [...m.newSubs]; a[i] = v; return { ...m, newSubs: a }; });
+    const addNewSub = () => setModal(m => ({ ...m, newSubs: [...m.newSubs, ''] }));
+    const removeNewSub = (i) => setModal(m => { const a = m.newSubs.filter((_, idx) => idx !== i); return { ...m, newSubs: a.length ? a : [''] }; });
+    const toggleDelSub = (id) => setModal(m => ({
         ...m,
         delSubs: m.delSubs.includes(id) ? m.delSubs.filter(x => x !== id) : [...m.delSubs, id],
     }));
@@ -151,7 +155,11 @@ export default function CategoriesScreen() {
             <AppHeader
                 session={session}
                 darkMode={darkMode}
-                onToggleDark={() => setDarkMode(d => !d)}
+                onToggleDark={() => {
+                    const next = !darkMode;
+                    setDarkMode(next);
+                    saveDarkMode(next);
+                }}
                 onLogout={async () => { await clearSession(); router.replace('/(auth)/login'); }}
             />
 
@@ -163,7 +171,7 @@ export default function CategoriesScreen() {
                     <Ionicons name="chevron-forward" size={13} color="#94a3b8" />
                     <Text style={st.breadcrumbCurrent}>Catégories</Text>
                 </View>
- 
+
                 <Text style={st.pageTitle}>Catégories</Text>
 
                 <View style={st.card}>
@@ -342,44 +350,44 @@ export default function CategoriesScreen() {
 }
 
 const st = StyleSheet.create({
-    safe:         { flex: 1, backgroundColor: BG },
-    center:       { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BG },
-    scroll:       { flex: 1 },
-    scrollContent:{ padding: 16, paddingBottom: 32 },
+    safe: { flex: 1, backgroundColor: BG },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BG },
+    scroll: { flex: 1 },
+    scrollContent: { padding: 16, paddingBottom: 32 },
 
-    breadcrumbRow:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
-    breadcrumbBack:   { fontSize: 12, color: '#94a3b8' },
-    breadcrumbCurrent:{ fontSize: 12, color: TEAL, fontWeight: '600' },
-    pageTitle:        { fontSize: 22, fontWeight: '800', color: '#1a2940', marginBottom: 16 },
+    breadcrumbRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+    breadcrumbBack: { fontSize: 12, color: '#94a3b8' },
+    breadcrumbCurrent: { fontSize: 12, color: TEAL, fontWeight: '600' },
+    pageTitle: { fontSize: 22, fontWeight: '800', color: '#1a2940', marginBottom: 16 },
 
     card: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
 
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, flexWrap: 'wrap', gap: 10 },
-    cardTitle:  { fontSize: 15, fontWeight: '800', color: '#1a2940', flex: 1 },
-    addBtn:     { backgroundColor: TEAL, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
+    cardTitle: { fontSize: 15, fontWeight: '800', color: '#1a2940', flex: 1 },
+    addBtn: { backgroundColor: TEAL, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
     addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
     tableHead: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#e8eef4' },
-    th:        { fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.4 },
+    th: { fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.4 },
 
-    row:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     rowAlt: { backgroundColor: '#fafcff' },
-    td:     { justifyContent: 'center' },
+    td: { justifyContent: 'center' },
 
     catName: { fontSize: 13, fontWeight: '600', color: '#1a2940', marginTop: 2 },
-    none:    { fontSize: 12, color: '#b0bcc8', fontStyle: 'italic' },
+    none: { fontSize: 12, color: '#b0bcc8', fontStyle: 'italic' },
 
-    chip:    { backgroundColor: TEAL, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 2 },
+    chip: { backgroundColor: TEAL, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 2 },
     chipTxt: { fontSize: 11, color: '#fff', fontWeight: '600' },
 
-    badge:      { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-    badgeOn:    { backgroundColor: '#d1fae5' },
-    badgeOff:   { backgroundColor: '#fee2e2' },
-    badgeTxt:   { fontSize: 11, fontWeight: '700' },
+    badge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+    badgeOn: { backgroundColor: '#d1fae5' },
+    badgeOff: { backgroundColor: '#fee2e2' },
+    badgeTxt: { fontSize: 11, fontWeight: '700' },
     badgeOnTxt: { color: '#065f46' },
-    badgeOffTxt:{ color: '#991b1b' },
+    badgeOffTxt: { color: '#991b1b' },
 
-    iconBtn:    { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+    iconBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
     iconBtnRed: { borderColor: '#fee2e2', backgroundColor: '#fff5f5' },
 
     centerPad: { padding: 32, alignItems: 'center' },
@@ -393,27 +401,27 @@ const st = StyleSheet.create({
         maxHeight: '90%', zIndex: 21, paddingHorizontal: 20,
         shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 20,
     },
-    handle:     { width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
+    handle: { width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
     sheetTitle: { fontSize: 20, fontWeight: '800', color: '#1a2940', marginBottom: 16 },
-    divider:    { height: 1, backgroundColor: '#f1f5f9', marginVertical: 16 },
+    divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 16 },
 
-    label:      { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 8 },
+    label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 8 },
     sectionLbl: { fontSize: 14, fontWeight: '800', color: '#1a2940', marginBottom: 10, marginTop: 4 },
-    req:        { color: '#e53e3e' },
+    req: { color: '#e53e3e' },
 
     input: { backgroundColor: '#f8fafc', borderRadius: 12, height: 48, paddingHorizontal: 14, fontSize: 14, color: '#1a2940', borderWidth: 1.5, borderColor: '#e2e8f0', marginBottom: 14 },
 
-    subRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+    subRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
     addSubBtn: { borderWidth: 1.5, borderColor: TEAL, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginBottom: 10 },
     addSubTxt: { color: TEAL, fontWeight: '700', fontSize: 13 },
 
-    existRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    existTxt:  { fontSize: 14, color: '#334155' },
-    existDel:  { textDecorationLine: 'line-through', color: '#94a3b8' },
+    existRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    existTxt: { fontSize: 14, color: '#334155' },
+    existDel: { textDecorationLine: 'line-through', color: '#94a3b8' },
 
-    btnRow:    { flexDirection: 'row', gap: 12 },
-    saveBtn:   { flex: 1, backgroundColor: TEAL, borderRadius: 30, height: 50, justifyContent: 'center', alignItems: 'center' },
-    saveTxt:   { color: '#fff', fontWeight: '700', fontSize: 15 },
+    btnRow: { flexDirection: 'row', gap: 12 },
+    saveBtn: { flex: 1, backgroundColor: TEAL, borderRadius: 30, height: 50, justifyContent: 'center', alignItems: 'center' },
+    saveTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
     cancelBtn: { flex: 1, backgroundColor: '#f1f5f9', borderRadius: 30, height: 50, justifyContent: 'center', alignItems: 'center' },
     cancelTxt: { color: '#475569', fontWeight: '600', fontSize: 15 },
 });

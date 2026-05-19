@@ -53,7 +53,7 @@ export default function HistoriqueProduitScreen() {
       const params = new URLSearchParams({ page: p, limit });
       if (q) params.append('search', q);
 
-      const res = await fetch(`${API_URL}/api/products/${id}/historique?${params}`, {
+      const res = await fetch(`${API_URL}/api/products/produits/products-historique.php?id=${id}&${params}`, {
         headers: authHeaders(token),
       });
       const json = await res.json();

@@ -78,7 +78,7 @@ export default function AjouterProduit() {
 
   const fetchCategories = async (tok) => {
     try {
-      const res = await fetch(`${API_URL}/api/categories`, { headers: { 'X-Token': tok } });
+      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: { 'X-Token': tok } });
       const data = await res.json();
       if (data.success) setCategories(Array.isArray(data.data) ? data.data : []);
     } catch (_) { }
@@ -121,14 +121,14 @@ export default function AjouterProduit() {
   const uploadImage = async (imageObj, productId, tok) => {
     const fd = new FormData();
     fd.append('image', { uri: imageObj.uri, name: imageObj.name, type: imageObj.type });
-    const res = await fetch(`${API_URL}/api/products/${productId}/image`, { method: 'POST', headers: { 'X-Token': tok }, body: fd });
+    const res = await fetch(`${API_URL}/api/products/images/upload-image.php?product_id=${productId}`, { method: 'POST', headers: { 'X-Token': tok }, body: fd });
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.message || 'Erreur upload image');
   };
 
   // ── NOUVEAU : upload variante ──────────────────────────────────────────────
   const uploadVariante = async (variante, productId, tok) => {
-    const res = await fetch(`${API_URL}/api/products/${productId}/variation`, {
+    const res = await fetch(`${API_URL}/api/products/produits/list-variation.php?product_id=${productId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Token': tok },
       body: JSON.stringify(variante),
@@ -142,7 +142,7 @@ export default function AjouterProduit() {
     setLoading(true);
     try {
       // Étape 1 : créer le produit
-      const res = await fetch(`${API_URL}/api/products`, {
+      const res = await fetch(`${API_URL}/api/products/produits/products-create.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
         body: JSON.stringify({

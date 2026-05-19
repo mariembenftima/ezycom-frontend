@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,38 +19,41 @@ import {
 } from 'react-native';
 import { API_URL } from '../../../../config';
 import { loadSession } from '../../../../utils/auth';
+import { loadDarkMode, saveDarkMode } from '../../../../utils/darkMode';
 import AppFooter from '../../../components/AppFooter';
 import AppHeader from '../../../components/AppHeader';
-
 const TEAL = '#29B6D8';
 const DARK_BG = '#0F1B2D';
 const LIMIT_OPTIONS = [4, 8, 10, 20, 50];
 
 export default function ProduitsScreen() {
-  const [session, setSession]         = useState(null);
-  const [darkMode, setDarkMode]       = useState(false);
-  const [produits, setProduits]       = useState([]);
-  const [categories, setCategories]   = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const [session, setSession] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+  useEffect(() => {
+    loadDarkMode().then(setDarkMode);
+  }, []);
+  const [produits, setProduits] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [page, setPage]               = useState(1);
-  const [totalPages, setTotalPages]   = useState(1);
-  const [total, setTotal]             = useState(0);
-  const [limit, setLimit]             = useState(4);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(4);
 
-  const [search, setSearch]           = useState('');
-  const [idCat, setIdCat]             = useState(0);
-  const [idSous, setIdSous]           = useState(0);
+  const [search, setSearch] = useState('');
+  const [idCat, setIdCat] = useState(0);
+  const [idSous, setIdSous] = useState(0);
 
   const [showLimitPicker, setShowLimitPicker] = useState(false);
-  const [showCatPicker, setShowCatPicker]     = useState(false);
+  const [showCatPicker, setShowCatPicker] = useState(false);
   const [selectedProduit, setSelectedProduit] = useState(null);
-  const [showDetails, setShowDetails]         = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
-  const bg   = darkMode ? DARK_BG  : '#EEF4F8';
+  const bg = darkMode ? DARK_BG : '#EEF4F8';
   const card = darkMode ? '#1A2A3D' : '#FFFFFF';
-  const txt  = darkMode ? '#FFFFFF' : '#0D1B2A';
-  const sub  = darkMode ? '#8899AA' : '#6A7A8A';
+  const txt = darkMode ? '#FFFFFF' : '#0D1B2A';
+  const sub = darkMode ? '#8899AA' : '#6A7A8A';
 
   useFocusEffect(
     useCallback(() => {
@@ -68,21 +71,21 @@ export default function ProduitsScreen() {
 
   const fetchCategories = async (token) => {
     try {
-      const res  = await fetch(`${API_URL}/api/categories`, { headers: authHeaders(token) });
+      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: authHeaders(token) });
       const json = await res.json();
       if (json.success) setCategories(json.data?.categories ?? json.data ?? []);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const fetchProduits = async (token, p = 1, q = search, cat = idCat, sous = idSous, lim = limit) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: p, limit: lim });
-      if (q)    params.append('search', q);
-      if (cat)  params.append('id_cat', cat);
+      if (q) params.append('search', q);
+      if (cat) params.append('id_cat', cat);
       if (sous) params.append('id_sous_cat', sous);
 
-      const res  = await fetch(`${API_URL}/api/products?${params}`, { headers: authHeaders(token) });
+      const res = await fetch(`${API_URL}/api/products/produits/products-list.php?${params}`, { headers: authHeaders(token) });
       const json = await res.json();
       if (json.success) {
         setProduits(json.data?.produits ?? []);
@@ -106,7 +109,7 @@ export default function ProduitsScreen() {
         text: 'Supprimer', style: 'destructive',
         onPress: async () => {
           try {
-            await fetch(`${API_URL}/api/products/${id}`, {
+            await fetch(`${API_URL}/api/products/produits/products-delete.php?id=${id}`, {
               method: 'DELETE', headers: authHeaders(session.token),
             });
             fetchProduits(session.token, page);
@@ -123,32 +126,32 @@ export default function ProduitsScreen() {
     setShowDetails(true);
   };
 
-  // Récupère TOUS les produits (sans pagination) pour l'export
+
   const fetchAllProduits = async () => {
     const params = new URLSearchParams({ page: 1, limit: 9999 });
-    if (search)  params.append('search', search);
-    if (idCat)   params.append('id_cat', idCat);
-    if (idSous)  params.append('id_sous_cat', idSous);
-    const res  = await fetch(`${API_URL}/api/products?${params}`, { headers: authHeaders(session.token) });
+    if (search) params.append('search', search);
+    if (idCat) params.append('id_cat', idCat);
+    if (idSous) params.append('id_sous_cat', idSous);
+    const res = await fetch(`${API_URL}/api/products/produits/products-list.php?${params}`, { headers: authHeaders(session.token) });
     const json = await res.json();
     return json.data?.produits ?? [];
   };
 
   const COLONNES = [
-    { key: 'ref',                label: 'Référence' },
-    { key: 'nom',                label: 'Nom du produit' },
-    { key: 'categorie_nom',      label: 'Catégorie' },
+    { key: 'ref', label: 'Référence' },
+    { key: 'nom', label: 'Nom du produit' },
+    { key: 'categorie_nom', label: 'Catégorie' },
     { key: 'sous_categorie_nom', label: 'Sous-catégorie' },
-    { key: 'marque',             label: 'Marque' },
-    { key: 'modele',             label: 'Modèle' },
-    { key: 'couleur',            label: 'Couleur' },
-    { key: 'prix',               label: 'Prix de vente (DT)' },
-    { key: 'prix_achat',         label: "Prix d'achat (DT)" },
-    { key: 'qte',                label: 'Quantité' },
-    { key: 'seuil',              label: "Seuil d'alerte" },
-    { key: 'etat',               label: 'Statut' },
-    { key: 'description',        label: 'Description' },
-    { key: 'date_add',           label: "Date d'ajout" },
+    { key: 'marque', label: 'Marque' },
+    { key: 'modele', label: 'Modèle' },
+    { key: 'couleur', label: 'Couleur' },
+    { key: 'prix', label: 'Prix de vente (DT)' },
+    { key: 'prix_achat', label: "Prix d'achat (DT)" },
+    { key: 'qte', label: 'Quantité' },
+    { key: 'seuil', label: "Seuil d'alerte" },
+    { key: 'etat', label: 'Statut' },
+    { key: 'description', label: 'Description' },
+    { key: 'date_add', label: "Date d'ajout" },
   ];
 
   const formatVal = (key, val, produit) => {
@@ -157,8 +160,6 @@ export default function ProduitsScreen() {
     return String(val);
   };
 
-  // SAF = Storage Access Framework
-  // L'utilisateur choisit le dossier UNE SEULE FOIS → après ça sauvegarde direct
   const SAF = FileSystem.StorageAccessFramework;
 
   const saveWithSAF = async (content, fileName, mimeType, encoding = FileSystem.EncodingType.UTF8) => {
@@ -170,14 +171,12 @@ export default function ProduitsScreen() {
         return;
       }
 
-      // Crée le fichier dans le dossier choisi
       const fileUri = await SAF.createFileAsync(
         permissions.directoryUri,
         fileName,
         mimeType
       );
 
-      // Écrit le contenu
       await FileSystem.writeAsStringAsync(fileUri, content, { encoding });
 
       Alert.alert('✓ Enregistré', `"${fileName}" a été sauvegardé dans le dossier choisi.`);
@@ -200,7 +199,6 @@ export default function ProduitsScreen() {
         mimeType
       );
 
-      // Lit le fichier source en base64 et l'écrit dans la destination
       const base64 = await FileSystem.readAsStringAsync(sourceUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
@@ -226,13 +224,13 @@ export default function ProduitsScreen() {
       };
 
       const header = COLONNES.map(c => escapeCSV(c.label)).join(';');
-      const rows   = data.map(p =>
+      const rows = data.map(p =>
         COLONNES.map(c => escapeCSV(formatVal(c.key, p[c.key], p))).join(';')
       );
 
-      const csv      = '\uFEFF' + [header, ...rows].join('\n');
+      const csv = '\uFEFF' + [header, ...rows].join('\n');
       const fileName = `produits_${new Date().toISOString().slice(0, 10)}.csv`;
-      const fileUri  = FileSystem.cacheDirectory + fileName;
+      const fileUri = FileSystem.cacheDirectory + fileName;
 
       await FileSystem.writeAsStringAsync(fileUri, csv, {
         encoding: FileSystem.EncodingType.UTF8,
@@ -259,22 +257,21 @@ export default function ProduitsScreen() {
 
       const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-      // Calcul de la largeur de chaque colonne (en %) pour tenir en A4 paysage
       const colWidths = {
-        ref:                '7%',
-        nom:                '13%',
-        categorie_nom:      '9%',
+        ref: '7%',
+        nom: '13%',
+        categorie_nom: '9%',
         sous_categorie_nom: '9%',
-        marque:             '7%',
-        modele:             '6%',
-        couleur:            '6%',
-        prix:               '6%',
-        prix_achat:         '6%',
-        qte:                '5%',
-        seuil:              '5%',
-        etat:               '6%',
-        description:        '12%',
-        date_add:           '8%',
+        marque: '7%',
+        modele: '6%',
+        couleur: '6%',
+        prix: '6%',
+        prix_achat: '6%',
+        qte: '5%',
+        seuil: '5%',
+        etat: '6%',
+        description: '12%',
+        date_add: '8%',
       };
 
       const headerCols = COLONNES.map(c =>
@@ -365,12 +362,12 @@ export default function ProduitsScreen() {
 
       const { uri } = await Print.printToFileAsync({
         html,
-        width:  842,
+        width: 842,
         height: 595,
       });
 
       const fileName = `produits_${new Date().toISOString().slice(0, 10)}.pdf`;
-      const destUri  = FileSystem.cacheDirectory + fileName;
+      const destUri = FileSystem.cacheDirectory + fileName;
       await FileSystem.copyAsync({ from: uri, to: destUri });
 
       await saveFileSAF(destUri, fileName, 'application/pdf');
@@ -381,8 +378,8 @@ export default function ProduitsScreen() {
     }
   };
 
-  const cats         = categories.filter(c => !c.parent_id);
-  const sousOfCat    = categories.filter(c => c.parent_id == idCat);
+  const cats = categories.filter(c => !c.parent_id);
+  const sousOfCat = categories.filter(c => c.parent_id == idCat);
   const selectedCatNom = cats.find(c => c.id == idCat)?.nom;
 
   const getStatutColor = (etat, qte) =>
@@ -429,14 +426,18 @@ export default function ProduitsScreen() {
       <AppHeader
         session={session}
         darkMode={darkMode}
-        onToggleDark={() => setDarkMode(d => !d)}
+        onToggleDark={() => {
+          const next = !darkMode;
+          setDarkMode(next);
+          saveDarkMode(next);
+        }}
         onLogout={() => router.replace('/(auth)/login')}
       />
 
       {/* ── MODAL DÉTAILS PRODUIT ── */}
       <Modal visible={showDetails} transparent animationType="slide" onRequestClose={() => setShowDetails(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowDetails(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: card }]} onPress={() => {}}>
+          <Pressable style={[styles.modalCard, { backgroundColor: card }]} onPress={() => { }}>
             {selectedProduit && (() => {
               const stat = getStatutColor(selectedProduit.etat, selectedProduit.qte);
               return (
@@ -767,65 +768,65 @@ export default function ProduitsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1 },
-  scroll:          { paddingHorizontal: 16, paddingBottom: 80 },
-  breadcrumbRow:   { flexDirection: 'row', marginTop: 14, marginBottom: 4 },
-  breadcrumb:      { fontSize: 12 },
-  pageTitle:       { fontSize: 22, fontWeight: '800', marginBottom: 14 },
-  card:            { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  sectionLabel:    { fontSize: 13, marginBottom: 8 },
-  importRow:       { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
-  csvBtn:          { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  csvBtnTxt:       { fontSize: 13, fontWeight: '600' },
-  fileRow:         { flexDirection: 'row', gap: 8 },
-  fileInput:       { flex: 1, flexDirection: 'row', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
-  fileInputTxt:    { fontSize: 13, fontWeight: '500' },
-  fileInputSub:    { fontSize: 12 },
-  importBtn:       { flexDirection: 'row', alignItems: 'center', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  importBtnTxt:    { color: '#fff', fontWeight: '700', fontSize: 13 },
-  tableHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  tableTitle:      { fontSize: 17, fontWeight: '800' },
-  addBtn:          { flexDirection: 'row', alignItems: 'center', borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8 },
-  addBtnTxt:       { color: '#fff', fontWeight: '700', fontSize: 13 },
-  filterRow:       { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-  limitPicker:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
-  filterLabel:     { fontSize: 13 },
-  searchInput:     { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13 },
-  catDropdown:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
-  subChip:         { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  colHeader:       { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, marginBottom: 4 },
-  colTxt:          { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  emptyTxt:        { textAlign: 'center', marginVertical: 30, fontSize: 14 },
-  prodRow:         { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
-  prodNom:         { fontSize: 13, fontWeight: '700' },
-  prodRef:         { fontSize: 11, marginTop: 2 },
-  statutBadge:     { borderRadius: 20, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 3 },
-  statutTxt:       { fontSize: 11, fontWeight: '600' },
-  detailBtn:       { width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F7FB', alignItems: 'center', justifyContent: 'center' },
-  deleteBtn:       { width: 32, height: 32, borderRadius: 8, backgroundColor: '#FDEDEC', alignItems: 'center', justifyContent: 'center' },
-  paginationRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
-  paginationInfo:  { fontSize: 12 },
-  paginationBtns:  { flexDirection: 'row', gap: 6 },
-  pageBtn:         { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' },
-  exportRow:       { flexDirection: 'row', gap: 10, marginTop: 16 },
-  exportBtn:       { borderRadius: 22, paddingHorizontal: 18, paddingVertical: 10 },
-  exportTxt:       { color: '#fff', fontWeight: '700', fontSize: 13 },
+  safe: { flex: 1 },
+  scroll: { paddingHorizontal: 16, paddingBottom: 80 },
+  breadcrumbRow: { flexDirection: 'row', marginTop: 14, marginBottom: 4 },
+  breadcrumb: { fontSize: 12 },
+  pageTitle: { fontSize: 22, fontWeight: '800', marginBottom: 14 },
+  card: { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  sectionLabel: { fontSize: 13, marginBottom: 8 },
+  importRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
+  csvBtn: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  csvBtnTxt: { fontSize: 13, fontWeight: '600' },
+  fileRow: { flexDirection: 'row', gap: 8 },
+  fileInput: { flex: 1, flexDirection: 'row', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  fileInputTxt: { fontSize: 13, fontWeight: '500' },
+  fileInputSub: { fontSize: 12 },
+  importBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  importBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  tableTitle: { fontSize: 17, fontWeight: '800' },
+  addBtn: { flexDirection: 'row', alignItems: 'center', borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8 },
+  addBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
+  limitPicker: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
+  filterLabel: { fontSize: 13 },
+  searchInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13 },
+  catDropdown: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
+  subChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  colHeader: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, marginBottom: 4 },
+  colTxt: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  emptyTxt: { textAlign: 'center', marginVertical: 30, fontSize: 14 },
+  prodRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
+  prodNom: { fontSize: 13, fontWeight: '700' },
+  prodRef: { fontSize: 11, marginTop: 2 },
+  statutBadge: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 3 },
+  statutTxt: { fontSize: 11, fontWeight: '600' },
+  detailBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F7FB', alignItems: 'center', justifyContent: 'center' },
+  deleteBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#FDEDEC', alignItems: 'center', justifyContent: 'center' },
+  paginationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
+  paginationInfo: { fontSize: 12 },
+  paginationBtns: { flexDirection: 'row', gap: 6 },
+  pageBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' },
+  exportRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  exportBtn: { borderRadius: 22, paddingHorizontal: 18, paddingVertical: 10 },
+  exportTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
-  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalCard:       { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
-  modalHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-  modalTitle:      { fontSize: 17, fontWeight: '800', flex: 1, marginRight: 12 },
-  modalRef:        { fontSize: 12, marginBottom: 14 },
-  modalDivider:    { height: 1, marginVertical: 4 },
-  modalRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9 },
-  modalLabel:      { fontSize: 13 },
-  modalValue:      { fontSize: 13, fontWeight: '600', maxWidth: '55%', textAlign: 'right' },
-  modalBtnRow:     { flexDirection: 'row', gap: 10 },
-  modalBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 22, paddingVertical: 12 },
-  modalBtnTxt:     { color: '#fff', fontWeight: '700', fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
+  modalTitle: { fontSize: 17, fontWeight: '800', flex: 1, marginRight: 12 },
+  modalRef: { fontSize: 12, marginBottom: 14 },
+  modalDivider: { height: 1, marginVertical: 4 },
+  modalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9 },
+  modalLabel: { fontSize: 13 },
+  modalValue: { fontSize: 13, fontWeight: '600', maxWidth: '55%', textAlign: 'right' },
+  modalBtnRow: { flexDirection: 'row', gap: 10 },
+  modalBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 22, paddingVertical: 12 },
+  modalBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  limitModal:      { position: 'absolute', top: '35%', alignSelf: 'center', width: 240, borderRadius: 16, overflow: 'hidden', elevation: 8 },
-  catModal:        { position: 'absolute', top: '20%', alignSelf: 'center', width: 280, borderRadius: 16, overflow: 'hidden', elevation: 8, maxHeight: '60%' },
+  limitModal: { position: 'absolute', top: '35%', alignSelf: 'center', width: 240, borderRadius: 16, overflow: 'hidden', elevation: 8 },
+  catModal: { position: 'absolute', top: '20%', alignSelf: 'center', width: 280, borderRadius: 16, overflow: 'hidden', elevation: 8, maxHeight: '60%' },
   limitModalTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 16, paddingVertical: 12 },
-  limitOption:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' },
+  limitOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' },
 });

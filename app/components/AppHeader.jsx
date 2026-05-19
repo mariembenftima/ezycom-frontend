@@ -35,9 +35,16 @@ const DARK = {
 };
 
 const MENU = [
-  { type: 'link', icon: 'grid-outline', label: 'Tableau de bord', route: '/(merchant)/dashboard' },
   {
-    type: 'section', icon: 'cube-outline', label: 'Stock',
+    type: 'link',
+    icon: 'grid-outline',
+    label: 'Tableau de bord',
+    route: '/(merchant)/dashboard',
+  },
+  {
+    type: 'section',
+    icon: 'cube-outline',
+    label: 'Stock',
     children: [
       { label: 'Catégories', route: '/(merchant)/stock/categories' },
       { label: 'Produits', route: '/(merchant)/stock/produits/produits' },
@@ -45,12 +52,24 @@ const MENU = [
       { label: 'Sortie Stock', route: '/(merchant)/stock/stock-out' },
     ],
   },
-  { type: 'link', icon: 'cart-outline', label: 'Ajouter Vente', route: '/(merchant)/ajouter-vente' },
-  { type: 'link', icon: 'clipboard-outline', label: 'Ajouter Commande', route: '/(merchant)/new-order' },
   {
-    type: 'section', icon: 'list-outline', label: 'Commandes',
+    type: 'link',
+    icon: 'cart-outline',
+    label: 'Ajouter Vente',
+    route: '/(merchant)/ajouter-vente',
+  },
+  {
+    type: 'link',
+    icon: 'clipboard-outline',
+    label: 'Ajouter Commande',
+    route: '/(merchant)/ajouter-commande',
+  },
+  {
+    type: 'section',
+    icon: 'list-outline',
+    label: 'Commandes',
     children: [
-      { label: 'Toutes', route: '/(merchant)/commandes' },
+      { label: 'Toutes', route: '/(merchant)/commandes/detail' },
       { label: 'En attente', route: '/(merchant)/commandes?etat=0' },
       { label: 'Confirmées', route: '/(merchant)/commandes?etat=1' },
       { label: 'Dispatchées', route: '/(merchant)/commandes?etat=2' },
@@ -58,32 +77,30 @@ const MENU = [
       { label: 'Annulées', route: '/(merchant)/commandes?etat=7' },
     ],
   },
-  { type: 'link', icon: 'mail-outline', label: 'Réclamations', route: '/(merchant)/claims' },
-  { type: 'link', icon: 'chatbubble-outline', label: 'Messenger', route: '/(merchant)/messenger' },
-  { type: 'link', icon: 'people-outline', label: 'Mes clients', route: '/(merchant)/clients' },
-  { type: 'link', icon: 'person-add-outline', label: 'Mon Équipe', route: '/(merchant)/team' },
   {
-    type: 'section', icon: 'cash-outline', label: 'Finance',
-    children: [{ label: 'Caisse', route: '/(merchant)/finance' }],
+    type: 'link',
+    icon: 'people-outline',
+    label: 'Mes clients',
+    route: '/(merchant)/clients',
   },
   {
-    type: 'section', icon: 'document-text-outline', label: 'Facturation',
-    children: [
-      { label: 'Factures', route: '/(merchant)/invoices' },
-      { label: 'Ajouter une nouvelle facture', route: '/(merchant)/invoices/new' },
-      { label: 'Informations de facturation', route: '/(merchant)/invoices/settings' },
-    ],
+    type: 'link',
+    icon: 'bar-chart-outline',
+    label: 'Statistiques',
+    route: '/(merchant)/statistiques',
   },
   {
-    type: 'section', icon: 'globe-outline', label: 'ezy.ezycom.tn',
-    children: [
-      { label: 'Paramètres', route: '/(merchant)/site/settings' },
-      { label: 'Produits recherchés', route: '/(merchant)/site/searched' },
-      { label: 'Produits en promo', route: '/(merchant)/site/promo' },
-      { label: 'Vente Flash', route: '/(merchant)/site/flash' },
-    ],
+    type: 'link',
+    icon: 'settings-outline',
+    label: 'Paramètres',
+    route: '/(merchant)/parametres',
   },
-  { type: 'link', icon: 'car-outline', label: 'Mes Transporteurs', route: '/(merchant)/shippers' },
+  {
+    type: 'link',
+    icon: 'pricetag-outline',
+    label: 'Nos abonnements',
+    route: '/(auth)/packs',
+  },
 ];
 
 export default function AppHeader({ session, darkMode, onToggleDark, onLogout }) {
@@ -123,8 +140,10 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
     });
   };
 
-  const navigateTo = (route) => closeSidebar(() => router.push(route));
-
+  const navigateTo = (route) => {
+    console.log('NAVIGATING TO:', route);
+    closeSidebar(() => router.push(route));
+};
   const handleLogout = () => {
     setProfileOpen(false);
     onLogout?.();
@@ -180,17 +199,9 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
             <View style={[s.profileDivider, darkMode && { backgroundColor: '#1E3A50' }]} />
             <Text style={[s.profileSectionLabel, darkMode && { color: '#5A8A9A' }]}>Mon compte</Text>
             <TouchableOpacity style={s.profileItem}
-              onPress={() => { setProfileOpen(false); router.push('/(merchant)/profile'); }}>
+              onPress={() => { setProfileOpen(false); router.push('/(merchant)/parametres'); }}>
               <Ionicons name="person-outline" size={18} color={darkMode ? '#A8C0D0' : '#6A7A8A'} style={{ marginRight: 12 }} />
-              <Text style={[s.profileItemText, darkMode && { color: '#C8DCE8' }]}>Profil</Text>
-              <Ionicons name="chevron-forward" size={16} color={darkMode ? '#3A6A8A' : '#C8D4E0'} style={{ marginLeft: 'auto' }} />
-            </TouchableOpacity>
-            <View style={[s.profileDivider, darkMode && { backgroundColor: '#1E3A50' }]} />
-            <Text style={[s.profileSectionLabel, darkMode && { color: '#5A8A9A' }]}>Paramètres</Text>
-            <TouchableOpacity style={s.profileItem}
-              onPress={() => { setProfileOpen(false); router.push('/(merchant)/help'); }}>
-              <Ionicons name="help-circle-outline" size={18} color={darkMode ? '#A8C0D0' : '#6A7A8A'} style={{ marginRight: 12 }} />
-              <Text style={[s.profileItemText, darkMode && { color: '#C8DCE8' }]}>Aide</Text>
+              <Text style={[s.profileItemText, darkMode && { color: '#C8DCE8' }]}>Paramètres</Text>
               <Ionicons name="chevron-forward" size={16} color={darkMode ? '#3A6A8A' : '#C8D4E0'} style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
             <View style={[s.profileDivider, darkMode && { backgroundColor: '#1E3A50' }]} />
@@ -257,7 +268,7 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
               {shop?.plan ? shop.plan.charAt(0).toUpperCase() + shop.plan.slice(1) : 'Gratuit'}
             </Text>
             <Text style={s.planCardSub}>Boostez encore votre activité</Text>
-            <TouchableOpacity style={s.planCardBtn}>
+            <TouchableOpacity style={s.planCardBtn} onPress={() => navigateTo('/(auth)/packs')}>
               <Text style={s.planCardBtnText}>Changer votre pack</Text>
             </TouchableOpacity>
           </View>
@@ -273,10 +284,7 @@ export default function AppHeader({ session, darkMode, onToggleDark, onLogout })
 }
 
 const s = StyleSheet.create({
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 12, paddingTop: 12, borderBottomWidth: 1,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, paddingTop: 12, borderBottomWidth: 1 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hamburger: { justifyContent: 'center', gap: 5, marginRight: 12, padding: 4 },
@@ -290,22 +298,8 @@ const s = StyleSheet.create({
   iconBtn: { padding: 6 },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#29B6D8', justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: 13, fontWeight: '800', color: '#fff' },
-
-  overlay: {
-    position: 'absolute', top: 0, left: 0,
-    width: SW, height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 10,
-  },
-  sidebar: {
-    position: 'absolute', top: 0, left: 0,
-    width: SIDEBAR_WIDTH, height: '100%',
-    backgroundColor: '#0F2035', paddingTop: 50,
-    zIndex: 11,
-    shadowColor: '#000', shadowOffset: { width: 6, height: 0 },
-    shadowOpacity: 0.35, shadowRadius: 16, elevation: 20,
-  },
-
+  overlay: { position: 'absolute', top: 0, left: 0, width: SW, height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10 },
+  sidebar: { position: 'absolute', top: 0, left: 0, width: SIDEBAR_WIDTH, height: '100%', backgroundColor: '#0F2035', paddingTop: 50, zIndex: 11, shadowColor: '#000', shadowOffset: { width: 6, height: 0 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 20 },
   sidebarLogo: { flexDirection: 'row', alignItems: 'baseline', paddingHorizontal: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#1E3A50' },
   logoEzy: { fontSize: 26, fontWeight: '800', color: '#fff' },
   logoCom: { fontSize: 26, fontWeight: '800', color: '#29B6D8' },
@@ -326,7 +320,6 @@ const s = StyleSheet.create({
   planCardBtnText: { color: '#fff', fontWeight: '700', textAlign: 'center', fontSize: 13 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, marginBottom: 40, borderTopWidth: 1, borderTopColor: '#1E3A50' },
   logoutLabel: { fontSize: 13, color: '#E53E3E', fontWeight: '600' },
-
   profileOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 70, paddingRight: 12 },
   profilePanel: { width: 240, backgroundColor: '#fff', borderRadius: 18, paddingVertical: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 10 },
   profilePanelDark: { backgroundColor: '#0F2035' },

@@ -1,324 +1,234 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image, Linking, Modal,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '../../../config';
 import { loadSession } from '../../../utils/auth';
+import { loadDarkMode, saveDarkMode } from '../../../utils/darkMode';
+import AppFooter from '../../components/AppFooter';
+import AppHeader from '../../components/AppHeader';
 
-const TEAL   = '#29B6D8';
-const BORDER = '#E5E7EB';
-const GRAY   = '#6B7280';
+const TEAL = '#29B6D8';
+
+const LIGHT = { bg: '#F9FAFB', card: '#fff', border: '#E5E7EB', text: '#111827', sub: '#6B7280', searchBg: '#F3F4F6' };
+const DARK  = { bg: '#0A1525', card: '#0F2035', border: '#1E3A50', text: '#E2EEF8', sub: '#5A8A9A', searchBg: '#152D42' };
 
 const STATUTS = [
-  { etat: 0, label: 'En attente',  color: '#D97706', bg: '#FEF3C7' },
-  { etat: 1, label: 'Confirmée',   color: '#2563EB', bg: '#DBEAFE' },
-  { etat: 2, label: 'Dispatchée',  color: '#7C3AED', bg: '#EDE9FE' },
-  { etat: 5, label: 'Livrée',      color: '#059669', bg: '#D1FAE5' },
-  { etat: 7, label: 'Annulée',     color: '#DC2626', bg: '#FEE2E2' },
+    { etat: null, label: 'Tous',       color: '#6B7280', bg: '#F3F4F6' },
+    { etat: 0,    label: 'En attente', color: '#D97706', bg: '#FEF3C7' },
+    { etat: 1,    label: 'Confirmée',  color: '#2563EB', bg: '#DBEAFE' },
+    { etat: 2,    label: 'Dispatché',  color: '#7C3AED', bg: '#EDE9FE' },
+    { etat: 5,    label: 'Livrée',     color: '#059669', bg: '#D1FAE5' },
+    { etat: 7,    label: 'Annulée',    color: '#DC2626', bg: '#FEE2E2' },
 ];
 
-const getStatut = (etat) => STATUTS.find(s => s.etat === etat) || STATUTS[0];
+const getStatut = (etat) => STATUTS.find(s => s.etat === parseInt(etat)) || STATUTS[0];
 
-const Timeline = ({ historique }) => (
-  <View style={styles.timelineContainer}>
-    {historique.map((h, i) => {
-      const s = getStatut(h.etat);
-      return (
-        <View key={h.id} style={styles.timelineRow}>
-          <View style={styles.timelineLeft}>
-            <View style={[styles.timelineDot, { backgroundColor: s.color }]} />
-            {i < historique.length - 1 && <View style={styles.timelineLine} />}
-          </View>
-          <View style={styles.timelineContent}>
-            <Text style={[styles.timelineLabel, { color: s.color }]}>{s.label}</Text>
-            <Text style={styles.timelineMotif}>{h.motif}</Text>
-            <Text style={styles.timelineDate}>
-              {h.date ? new Date(h.date).toLocaleString('fr-FR') : ''}
-            </Text>
-          </View>
-        </View>
-      );
-    })}
-  </View>
-);
+const CommandeCard = ({ item, T }) => {
+    const statut = getStatut(item.etat);
+    const date   = item.date_add ? new Date(item.date_add).toLocaleDateString('fr-FR') : '';
+    const client = [item.nom, item.prenom].filter(Boolean).join(' ') || 'Client inconnu';
+    const total  = item.prix ? `${parseFloat(item.prix).toFixed(3)} TND` : '—';
 
-export default function DetailCommandeScreen() {
-  const { id }           = useLocalSearchParams();
-  const [token,          setToken]          = useState(null);
-  const [commande,       setCommande]       = useState(null);
-  const [articles,       setArticles]       = useState([]);
-  const [historique,     setHistorique]     = useState([]);
-  const [loading,        setLoading]        = useState(true);
-  const [showStatutModal,setShowStatutModal] = useState(false);
-  const [savingStatut,   setSavingStatut]   = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const session = await loadSession();
-      if (!session?.token) { router.replace('/(auth)/login'); return; }
-      setToken(session.token);
-      fetchDetail(session.token);
-    })();
-  }, [id]);
-
-  const fetchDetail = async (tok) => {
-    setLoading(true);
-    try {
-      const res  = await fetch(`${API_URL}/api/orders/${id}`, { headers: { 'X-Token': tok } });
-      const data = await res.json();
-      if (data.success) {
-        setCommande(data.data.commande);
-        setArticles(Array.isArray(data.data.articles) ? data.data.articles : []);
-        setHistorique(Array.isArray(data.data.historique) ? data.data.historique : []);
-      } else {
-        Alert.alert('Erreur', data.message); router.back();
-      }
-    } catch (_) {
-      Alert.alert('Erreur réseau', 'Impossible de charger la commande.'); router.back();
-    } finally { setLoading(false); }
-  };
-
-  const changerStatut = async (etat, motif = '') => {
-    setSavingStatut(true);
-    try {
-      const res  = await fetch(`${API_URL}/api/orders/${id}/status`, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body:    JSON.stringify({ etat, motif }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setShowStatutModal(false);
-        fetchDetail(token);
-      } else {
-        Alert.alert('Erreur', data.message);
-      }
-    } catch (_) {
-      Alert.alert('Erreur réseau', 'Impossible de mettre à jour.');
-    } finally { setSavingStatut(false); }
-  };
-
-  const confirmerAnnulation = () => {
-    Alert.alert(
-      'Annuler la commande',
-      'Êtes-vous sûr de vouloir annuler cette commande ?',
-      [
-        { text: 'Non', style: 'cancel' },
-        { text: 'Oui, annuler', style: 'destructive', onPress: () => changerStatut(7, 'Annulée par le marchand') },
-      ]
-    );
-  };
-
-  if (loading) {
     return (
-      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color={TEAL} size="large" />
-      </SafeAreaView>
-    );
-  }
-
-  if (!commande) return null;
-
-  const statut      = getStatut(commande.etat);
-  const client      = [commande.nom, commande.prenom].filter(Boolean).join(' ') || 'Client inconnu';
-  const prixTotal   = commande.prix   ? parseFloat(commande.prix).toFixed(3)  : '0.000';
-  const fraisLiv    = commande.frais  ? parseFloat(commande.frais).toFixed(3) : '0.000';
-  const dateAdd     = commande.date_add ? new Date(commande.date_add).toLocaleString('fr-FR') : '';
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>#{commande.code_barre || commande.id}</Text>
-          <Text style={styles.headerDate}>{dateAdd}</Text>
-        </View>
-        <View style={[styles.badge, { backgroundColor: statut.bg }]}>
-          <Text style={[styles.badgeText, { color: statut.color }]}>{statut.label}</Text>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Client</Text>
-          <Text style={styles.clientName}>{client}</Text>
-          {commande.tel ? (
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#DBEAFE' }]}
-                onPress={() => Linking.openURL(`tel:${commande.tel}`)}
-              >
-                <Text style={[styles.actionBtnText, { color: '#2563EB' }]}>📞 Appeler</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#D1FAE5' }]}
-                onPress={() => Linking.openURL(`whatsapp://send?phone=${commande.tel}`)}
-              >
-                <Text style={[styles.actionBtnText, { color: '#059669' }]}>💬 WhatsApp</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-          {commande.adresse ? <Text style={styles.infoText}>{commande.adresse}, {commande.ville} {commande.gouvernerat}</Text> : null}
-          {commande.email   ? <Text style={styles.infoText}>{commande.email}</Text> : null}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Articles ({articles.length})</Text>
-          {articles.map((a, i) => (
-            <View key={i} style={styles.articleRow}>
-              {a.produit_img ? (
-                <Image source={{ uri: `${API_URL}${a.produit_img}` }} style={styles.articleImg} />
-              ) : (
-                <View style={[styles.articleImg, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
-                  <Text style={{ fontSize: 18 }}>📦</Text>
+        <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+            <View style={styles.cardTop}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardRef, { color: T.sub }]}>#{item.code_barre || item.id}</Text>
+                    <Text style={[styles.cardClient, { color: T.text }]}>{client}</Text>
                 </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.articleNom}>{a.produit_nom || 'Produit supprimé'}</Text>
-                {a.produit_ref   ? <Text style={styles.articleMeta}>Réf: {a.produit_ref}</Text>   : null}
-                {a.variation_sku ? <Text style={styles.articleMeta}>SKU: {a.variation_sku}</Text> : null}
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.articleQte}>x{a.qte}</Text>
-                <Text style={styles.articlePrix}>{a.prix ? parseFloat(a.prix).toFixed(3) : '—'}</Text>
-              </View>
+                <View style={[styles.badge, { backgroundColor: statut.bg }]}>
+                    <Text style={[styles.badgeText, { color: statut.color }]}>{statut.label}</Text>
+                </View>
             </View>
-          ))}
+            <View style={styles.cardBottom}>
+                <Text style={[styles.cardMeta, { color: T.sub }]}>{item.nb_articles} article{item.nb_articles > 1 ? 's' : ''}</Text>
+                <Text style={[styles.cardMeta, { color: T.sub }]}>{item.ville || '—'}</Text>
+                <Text style={styles.cardTotal}>{total}</Text>
+                <Text style={[styles.cardDate, { color: T.sub }]}>{date}</Text>
+            </View>
         </View>
+    );
+};
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Totaux</Text>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Sous-total</Text>
-            <Text style={styles.totalVal}>{prixTotal} TND</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Frais de livraison</Text>
-            <Text style={styles.totalVal}>{fraisLiv} TND</Text>
-          </View>
-          <View style={[styles.totalRow, styles.totalFinal]}>
-            <Text style={[styles.totalLabel, { fontWeight: '700', color: '#111827' }]}>Total</Text>
-            <Text style={[styles.totalVal, { fontWeight: '700', color: TEAL, fontSize: 16 }]}>
-              {(parseFloat(prixTotal) + parseFloat(fraisLiv)).toFixed(3)} TND
-            </Text>
-          </View>
-        </View>
+export default function CommandesScreen() {
+    const { etat: etatParam } = useGlobalSearchParams();
 
-        {historique.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Historique</Text>
-            <Timeline historique={historique} />
-          </View>
-        )}
+    const [session,     setSession]     = useState(null);
+    const [darkMode,    setDarkMode]    = useState(false);
+    const [token,       setToken]       = useState(null);
+    const [commandes,   setCommandes]   = useState([]);
+    const [stats,       setStats]       = useState({});
+    const [loading,     setLoading]     = useState(true);
+    const [refreshing,  setRefreshing]  = useState(false);
+    const [search,      setSearch]      = useState('');
+    const [filtreEtat,  setFiltreEtat]  = useState(etatParam !== undefined ? parseInt(etatParam) : null);
+    const [page,        setPage]        = useState(1);
+    const [hasMore,     setHasMore]     = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
 
-        {commande.etat !== 7 && (
-          <View style={styles.actionsSection}>
-            <TouchableOpacity
-              style={styles.btnChangerStatut}
-              onPress={() => setShowStatutModal(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.btnChangerStatutText}>Changer le statut</Text>
-            </TouchableOpacity>
-            {commande.etat !== 5 && (
-              <TouchableOpacity style={styles.btnAnnuler} onPress={confirmerAnnulation} activeOpacity={0.8}>
-                <Text style={styles.btnAnnulerText}>Annuler la commande</Text>
-              </TouchableOpacity>
+    const T = darkMode ? DARK : LIGHT;
+
+    useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                const s = await loadSession();
+                if (!s?.token) { router.replace('/(auth)/login'); return; }
+                setSession(s);
+                setToken(s.token);
+                const etat = etatParam !== undefined ? parseInt(etatParam) : null;
+                setFiltreEtat(etat);
+                fetchCommandes(s.token, 1, etat, '');
+            })();
+        }, [etatParam])
+    );
+
+    const fetchCommandes = async (tok, p = 1, etat = filtreEtat, q = search, append = false) => {
+        if (!append) setLoading(true);
+        else setLoadingMore(true);
+        try {
+            let url = `${API_URL}/api/orders/orders-list.php?page=${p}&limit=20`;
+            if (etat !== null && etat !== undefined) url += `&etat=${etat}`;
+            if (q) url += `&search=${encodeURIComponent(q)}`;
+            const res  = await fetch(url, { headers: { 'X-Token': tok } });
+            const data = await res.json();
+            if (data.success) {
+                const list = Array.isArray(data.data?.commandes) ? data.data.commandes : [];
+                setCommandes(prev => append ? [...prev, ...list] : list);
+                setStats(data.data?.stats || {});
+                setHasMore(p < (data.data?.pages || 1));
+                setPage(p);
+            }
+        } catch (_) {}
+        finally { setLoading(false); setLoadingMore(false); setRefreshing(false); }
+    };
+
+    const onRefresh      = () => { setRefreshing(true); fetchCommandes(token, 1, filtreEtat, search); };
+    const onFiltreChange = (etat) => { setFiltreEtat(etat); setCommandes([]); fetchCommandes(token, 1, etat, search); };
+    const onSearchChange = (q) => { setSearch(q); if (q.length === 0 || q.length >= 3) fetchCommandes(token, 1, filtreEtat, q); };
+    const loadMore       = () => { if (!hasMore || loadingMore) return; fetchCommandes(token, page + 1, filtreEtat, search, true); };
+
+    return (
+        <SafeAreaView style={[styles.safe, { backgroundColor: T.bg }]}>
+            <AppHeader
+                session={session} darkMode={darkMode}
+                onToggleDark={() => { const next = !darkMode; setDarkMode(next); saveDarkMode(next); }}
+                onLogout={() => router.replace('/(auth)/login')}
+            />
+
+            <View style={[styles.statsRow, { backgroundColor: T.card, borderBottomColor: T.border }]}>
+                <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={[styles.statVal, { color: '#D97706' }]}>{stats.en_attente || 0}</Text>
+                    <Text style={[styles.statLbl, { color: T.sub }]}>En attente</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
+                    <Text style={[styles.statVal, { color: '#2563EB' }]}>{stats.confirmee || 0}</Text>
+                    <Text style={[styles.statLbl, { color: T.sub }]}>Confirmées</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
+                    <Text style={[styles.statVal, { color: '#059669' }]}>{stats.livree || 0}</Text>
+                    <Text style={[styles.statLbl, { color: T.sub }]}>Livrées</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
+                    <Text style={[styles.statVal, { color: '#DC2626' }]}>{stats.annulee || 0}</Text>
+                    <Text style={[styles.statLbl, { color: T.sub }]}>Annulées</Text>
+                </View>
+            </View>
+
+            <View style={[styles.searchRow, { backgroundColor: T.card, borderBottomColor: T.border }]}>
+                <View style={[styles.searchWrap, { backgroundColor: T.searchBg }]}>
+                    <Ionicons name="search-outline" size={16} color={T.sub} style={{ marginRight: 6 }} />
+                    <TextInput
+                        style={[styles.searchInput, { color: T.text }]}
+                        placeholder="Rechercher..."
+                        placeholderTextColor={T.sub}
+                        value={search}
+                        onChangeText={onSearchChange}
+                    />
+                    {search.length > 0 && (
+                        <TouchableOpacity onPress={() => onSearchChange('')}>
+                            <Ionicons name="close-circle" size={16} color={T.sub} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filtresRow, { backgroundColor: T.card, borderBottomColor: T.border }]} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
+                {STATUTS.map((s, i) => (
+                    <TouchableOpacity
+                        key={i}
+                        style={[styles.filtreChip, { borderColor: T.border, backgroundColor: T.bg }, filtreEtat === s.etat && { backgroundColor: s.bg, borderColor: s.color }]}
+                        onPress={() => onFiltreChange(s.etat)}
+                    >
+                        <Text style={[styles.filtreText, { color: T.sub }, filtreEtat === s.etat && { color: s.color, fontWeight: '700' }]}>
+                            {s.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+
+            {loading ? (
+                <View style={styles.center}><ActivityIndicator color={TEAL} size="large" /></View>
+            ) : commandes.length === 0 ? (
+                <View style={styles.center}>
+                    <Ionicons name="clipboard-outline" size={48} color={T.border} />
+                    <Text style={[styles.emptyText, { color: T.sub }]}>Aucune commande trouvée</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={commandes}
+                    keyExtractor={item => String(item.id)}
+                    contentContainerStyle={styles.list}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TEAL} />}
+                    onEndReached={loadMore}
+                    onEndReachedThreshold={0.3}
+                    ListFooterComponent={loadingMore ? <ActivityIndicator color={TEAL} style={{ marginVertical: 12 }} /> : null}
+                    renderItem={({ item }) => <CommandeCard item={item} T={T} />}
+                />
             )}
-          </View>
-        )}
 
-        <View style={{ height: 32 }} />
-      </ScrollView>
-
-      <Modal visible={showStatutModal} transparent animationType="slide" onRequestClose={() => setShowStatutModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Changer le statut</Text>
-            {STATUTS.filter(s => s.etat !== 7 && s.etat !== commande.etat).map(s => (
-              <TouchableOpacity
-                key={s.etat}
-                style={[styles.modalOption, { backgroundColor: s.bg }]}
-                onPress={() => changerStatut(s.etat)}
-                disabled={savingStatut}
-              >
-                {savingStatut ? (
-                  <ActivityIndicator color={s.color} size="small" />
-                ) : (
-                  <Text style={[styles.modalOptionText, { color: s.color }]}>{s.label}</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setShowStatutModal(false)}>
-              <Text style={styles.modalCancelText}>Annuler</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
-  );
+            <AppFooter darkMode={darkMode} />
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-  safe:              { flex: 1, backgroundColor: '#F9FAFB' },
-  header:            { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: BORDER },
-  backBtn:           { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  backIcon:          { fontSize: 28, color: TEAL, lineHeight: 32 },
-  headerTitle:       { fontSize: 15, fontWeight: '700', color: '#111827' },
-  headerDate:        { fontSize: 11, color: GRAY },
-  badge:             { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  badgeText:         { fontSize: 11, fontWeight: '600' },
-  scroll:            { padding: 14, gap: 12 },
-  section:           { backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: BORDER },
-  sectionTitle:      { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 10 },
-  clientName:        { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  actionsRow:        { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  actionBtn:         { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  actionBtnText:     { fontSize: 13, fontWeight: '600' },
-  infoText:          { fontSize: 12, color: GRAY, marginTop: 3 },
-  articleRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BORDER },
-  articleImg:        { width: 48, height: 48, borderRadius: 8 },
-  articleNom:        { fontSize: 13, fontWeight: '600', color: '#111827' },
-  articleMeta:       { fontSize: 11, color: GRAY, marginTop: 2 },
-  articleQte:        { fontSize: 13, fontWeight: '600', color: '#111827' },
-  articlePrix:       { fontSize: 12, color: TEAL, marginTop: 2 },
-  totalRow:          { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
-  totalFinal:        { borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4, paddingTop: 10 },
-  totalLabel:        { fontSize: 13, color: GRAY },
-  totalVal:          { fontSize: 13, color: '#111827' },
-  timelineContainer: { gap: 0 },
-  timelineRow:       { flexDirection: 'row', gap: 10 },
-  timelineLeft:      { alignItems: 'center', width: 16 },
-  timelineDot:       { width: 12, height: 12, borderRadius: 6, marginTop: 3 },
-  timelineLine:      { flex: 1, width: 2, backgroundColor: BORDER, marginVertical: 2 },
-  timelineContent:   { flex: 1, paddingBottom: 14 },
-  timelineLabel:     { fontSize: 12, fontWeight: '700' },
-  timelineMotif:     { fontSize: 12, color: GRAY, marginTop: 1 },
-  timelineDate:      { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
-  actionsSection:    { gap: 10 },
-  btnChangerStatut:  { backgroundColor: TEAL, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  btnChangerStatutText:{ color: '#fff', fontSize: 15, fontWeight: '700' },
-  btnAnnuler:        { backgroundColor: '#FEE2E2', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  btnAnnulerText:    { color: '#DC2626', fontSize: 15, fontWeight: '700' },
-  modalOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalBox:          { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 10 },
-  modalTitle:        { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 },
-  modalOption:       { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  modalOptionText:   { fontSize: 14, fontWeight: '700' },
-  modalCancel:       { paddingVertical: 14, alignItems: 'center', borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4 },
-  modalCancelText:   { fontSize: 14, color: GRAY, fontWeight: '600' },
+    safe:        { flex: 1 },
+    statsRow:    { flexDirection: 'row', gap: 8, padding: 12, borderBottomWidth: 1 },
+    statCard:    { flex: 1, borderRadius: 8, padding: 8, alignItems: 'center' },
+    statVal:     { fontSize: 18, fontWeight: '700' },
+    statLbl:     { fontSize: 9, marginTop: 2 },
+    searchRow:   { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
+    searchWrap:  { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+    searchInput: { flex: 1, fontSize: 13 },
+    filtresRow:  { paddingVertical: 8, borderBottomWidth: 1, maxHeight: 52 },
+    filtreChip:  { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+    filtreText:  { fontSize: 12 },
+    list:        { padding: 12, gap: 10 },
+    center:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    emptyText:   { fontSize: 14 },
+    card:        { borderRadius: 12, padding: 14, borderWidth: 1 },
+    cardTop:     { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+    cardRef:     { fontSize: 12, marginBottom: 2 },
+    cardClient:  { fontSize: 14, fontWeight: '600' },
+    cardBottom:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    cardMeta:    { fontSize: 11 },
+    cardTotal:   { flex: 1, fontSize: 13, fontWeight: '700', color: TEAL, textAlign: 'right' },
+    cardDate:    { fontSize: 11 },
+    badge:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    badgeText:   { fontSize: 12, fontWeight: '600' },
 });

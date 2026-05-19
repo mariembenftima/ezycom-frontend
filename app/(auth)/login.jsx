@@ -17,8 +17,10 @@ import {
   View,
 } from 'react-native';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { API_URL } from '../../config';
-import { saveSession } from '../../utils/auth';
+import { loadSession, saveSession } from '../../utils/auth';
 const { height }   = Dimensions.get('window');
 const stoneTexture = require('../../assets/images/stone.png');
 
@@ -27,7 +29,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
-  const [showPass, setShowPass] = useState(false);
+  const [showPass,     setShowPass]     = useState(false);
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioEnabled,   setBioEnabled]   = useState(false);
 
   const router = useRouter();
 
@@ -42,13 +46,21 @@ export default function LoginScreen() {
     Animated.stagger(120, blockAnims.map(anim =>
       Animated.spring(anim, { toValue: 0, tension: 60, friction: 7, useNativeDriver: true })
     )).start();
+    (async () => {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const enrolled    = await LocalAuthentication.isEnrolledAsync();
+      const enabled     = await AsyncStorage.getItem('biometric_enabled');
+      setBioAvailable(hasHardware && enrolled);
+      setBioEnabled(enabled === 'true');
+    })();
   }, []);
 
   const handleLogin = async () => {
     setLoading(true);
     setError('');
     try {
-      const res  = await fetch(`${API_URL}/api/auth/login`, {
+      console.log('CALLING:', `${API_URL}/api/auth/login.php`);
+      const res  = await fetch(`${API_URL}/api/auth/login.php`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -72,10 +84,34 @@ export default function LoginScreen() {
       } else {
         setError(data.message);
       }
-    } catch {
-      setError('Erreur de connexion au serveur');
-    } finally {
+    } catch (e) {
+  console.log('LOGIN ERROR:', e);
+  setError('Erreur de connexion au serveur');
+} finally {
       setLoading(false);
+    }
+  };
+
+  const handleBiometric = async () => {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Connectez-vous avec votre empreinte',
+      fallbackLabel: 'Utiliser le mot de passe',
+      cancelLabel:   'Annuler',
+    });
+    if (result.success) {
+      const session = await loadSession();
+      if (session?.token) {
+        router.push({
+          pathname: '/(auth)/welcome',
+          params: {
+            name:     session.user?.name || '',
+            shopName: session.shop?.name || '',
+            plan:     session.shop?.plan || '',
+          },
+        });
+      } else {
+        setError("Aucune session sauvegardée. Connectez-vous d'abord.");
+      }
     }
   };
 
@@ -174,6 +210,13 @@ export default function LoginScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
+            {bioAvailable && bioEnabled && (
+              <TouchableOpacity style={styles.bioBtn} onPress={handleBiometric} activeOpacity={0.8}>
+                <Text style={styles.bioIcon}>🪪</Text>
+                <Text style={styles.bioText}>Connexion par empreinte digitale</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>ou</Text>
@@ -235,4 +278,7 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 11, color: '#bdc3c7' },
   signupText:  { textAlign: 'center', fontSize: 11.5, color: '#7f8c8d', marginBottom: 30 },
   signupLink:  { color: '#29B6D8', fontWeight: '700' },
+  bioBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 14, borderWidth: 1.5, borderColor: '#29B6D8', borderRadius: 26, height: 52 },
+  bioIcon:     { fontSize: 22 },
+  bioText:     { fontSize: 13, fontWeight: '600', color: '#29B6D8' },
 });
