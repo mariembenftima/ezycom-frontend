@@ -61,7 +61,7 @@ export default function ResetPassword() {
   const strengthLabels = ['Faible', 'Moyen', 'Bien', 'Fort'];
 
   return (
-    <ImageBackground source={require('../../assets/images/stone.png')} style={styles.bg} resizeMode="cover">
+    <ImageBackground source={require('../../assets/images/stone.jpg')} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.card}>
