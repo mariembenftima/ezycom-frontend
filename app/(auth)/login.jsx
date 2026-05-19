@@ -22,7 +22,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { API_URL } from '../../config';
 import { loadSession, saveSession } from '../../utils/auth';
 const { height }   = Dimensions.get('window');
-const stoneTexture = require('../../assets/images/stone.png');
+const stoneTexture = require('../../assets/images/stone.jpg');
 
 export default function LoginScreen() {
   const [email,    setEmail]    = useState('');
