@@ -17,77 +17,82 @@ import {
 } from 'react-native';
 import VariantesSection from '../../../../components/VariantesSection';
 import { API_URL } from '../../../../config';
+import api from '../../../../utils/api';
 import { loadSession } from '../../../../utils/auth';
+import { loadDarkMode, saveDarkMode } from '../../../../utils/darkMode';
+import { DARK_BG, TEAL } from '../../../../utils/theme';
 import AppFooter from '../../../components/AppFooter';
 import AppHeader from '../../../components/AppHeader';
 
-const TEAL = '#29B6D8';
-const DARK_BG = '#0F1B2D';
-
-// ← Variantes ajouté entre Images et Confirmation
 const TABS = ['Informations', 'Catégorie', 'Images', 'Variantes', 'Confirmation'];
+
+const Field = ({ label, required, sub, inputBg, txt, border, ...props }) => (
+  <View style={styles.fieldWrap}>
+    <Text style={[styles.label, { color: sub }]}>{label}{required && <Text style={{ color: '#E74C3C' }}> *</Text>}</Text>
+    <TextInput
+      style={[styles.input, { borderColor: border, backgroundColor: inputBg, color: txt }]}
+      placeholderTextColor={sub}
+      {...props}
+    />
+  </View>
+);
 
 export default function ModifierProduitScreen() {
   const { id } = useLocalSearchParams();
-  const [session, setSession] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
-  const [categories, setCategories] = useState([]);
-  const [showCatPicker, setShowCatPicker] = useState(false);
-
-  const [nom, setNom] = useState('');
-  const [ref, setRef] = useState('');
-  const [marque, setMarque] = useState('');
-  const [modele, setModele] = useState('');
-  const [couleur, setCouleur] = useState('');
-  const [description, setDescription] = useState('');
-  const [prix, setPrix] = useState('');
-  const [prixAchat, setPrixAchat] = useState('');
-  const [qte, setQte] = useState('');
-  const [seuil, setSeuil] = useState('1');
-  const [idCat, setIdCat] = useState(0);
-  const [idSous, setIdSous] = useState(0);
-  const [photos, setPhotos] = useState([null, null, null, null]);
-  const [existingImgs, setExistingImgs] = useState([null, null, null, null]);
-
-  // ── Variantes ── ← NOUVEAU
-  const [variantes, setVariantes] = useState([]);
+  const [session,            setSession]            = useState(null);
+  const [darkMode,           setDarkMode]           = useState(false);
+  const [loading,            setLoading]            = useState(true);
+  const [saving,             setSaving]             = useState(false);
+  const [activeTab,          setActiveTab]          = useState(0);
+  const [categories,         setCategories]         = useState([]);
+  const [showCatPicker,      setShowCatPicker]      = useState(false);
+  const [nom,                setNom]                = useState('');
+  const [ref,                setRef]                = useState('');
+  const [marque,             setMarque]             = useState('');
+  const [modele,             setModele]             = useState('');
+  const [couleur,            setCouleur]            = useState('');
+  const [description,        setDescription]        = useState('');
+  const [prix,               setPrix]               = useState('');
+  const [prixAchat,          setPrixAchat]          = useState('');
+  const [qte,                setQte]                = useState('');
+  const [seuil,              setSeuil]              = useState('1');
+  const [idCat,              setIdCat]              = useState(0);
+  const [idSous,             setIdSous]             = useState(0);
+  const [photos,             setPhotos]             = useState([null, null, null, null]);
+  const [existingImgs,       setExistingImgs]       = useState([null, null, null, null]);
+  const [variantes,          setVariantes]          = useState([]);
   const [variantesInitiales, setVariantesInitiales] = useState([]);
 
-  const bg = darkMode ? DARK_BG : '#EEF4F8';
-  const card = darkMode ? '#1A2A3D' : '#FFFFFF';
-  const txt = darkMode ? '#FFFFFF' : '#0D1B2A';
-  const sub = darkMode ? '#8899AA' : '#6A7A8A';
-  const inputBg = darkMode ? '#243347' : '#FFFFFF';
-  const border = darkMode ? '#2E4060' : '#CBD5E0';
+  const bg      = darkMode ? DARK_BG    : '#EEF4F8';
+  const card    = darkMode ? '#1A2A3D'  : '#FFFFFF';
+  const txt     = darkMode ? '#FFFFFF'  : '#0D1B2A';
+  const sub     = darkMode ? '#8899AA'  : '#6A7A8A';
+  const inputBg = darkMode ? '#243347'  : '#FFFFFF';
+  const border  = darkMode ? '#2E4060'  : '#CBD5E0';
+
+  useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
   useEffect(() => {
     loadSession().then(s => {
       setSession(s);
       if (s && id) {
-        fetchCategories(s.token);
-        fetchProduit(s.token);
-        fetchVariations(s.token);   // ← NOUVEAU
+        fetchCategories();
+        fetchProduit();
+        fetchVariations();
       }
     });
-  }, []);
+  }, [id]);
 
-  const authHeaders = token => ({ 'X-Token': token, 'Content-Type': 'application/json' });
-
-  const fetchCategories = async (token) => {
+  const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: authHeaders(token) });
-      const json = await res.json();
+      const json = await api.get('/api/categories/categories-list.php');
       if (json.success) setCategories(Array.isArray(json.data) ? json.data : (json.data?.categories ?? []));
-    } catch (_) { }
+    } catch (_) {}
   };
 
-  const fetchProduit = async (token) => {
+  const fetchProduit = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/products/produits/products-get.php?id=${id}`, { headers: authHeaders(token) });
-      const json = await res.json();
+      const json = await api.get(`/api/products/produits/products-get.php?id=${id}`);
       if (json.success) {
         const p = json.data.produit;
         setNom(p.nom ?? '');
@@ -115,11 +120,9 @@ export default function ModifierProduitScreen() {
     }
   };
 
-  // ── NOUVEAU : charger variantes existantes ────────────────────────────────
-  const fetchVariations = async (token) => {
+  const fetchVariations = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/products/${id}/variations`, { headers: authHeaders(token) });
-      const json = await res.json();
+      const json = await api.get(`/api/products/variantes/list-variations.php?id_prod=${id}`);
       if (json.success && Array.isArray(json.data)) {
         const existing = json.data.map(v => ({
           ...v,
@@ -129,7 +132,7 @@ export default function ModifierProduitScreen() {
         setVariantes(existing);
         setVariantesInitiales(existing);
       }
-    } catch (_) { }
+    } catch (_) {}
   };
 
   const pickImage = async (index) => {
@@ -149,7 +152,6 @@ export default function ModifierProduitScreen() {
 
     setSaving(true);
     try {
-      // ── Étape 1 : Mettre à jour les infos du produit ──
       const form = new FormData();
       form.append('nom', nom.trim());
       form.append('ref', ref.trim());
@@ -173,37 +175,50 @@ export default function ModifierProduitScreen() {
       });
 
       const res = await fetch(`${API_URL}/api/products/produits/products-update.php?id=${id}`, {
-        method: 'POST', headers: { 'X-Token': session.token }, body: form,
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.token}` },
+        body: form,
       });
+
+      if (res.status === 401) {
+        const { clearSession } = await import('../../../../utils/auth');
+        await clearSession();
+        router.replace('/(auth)/login');
+        throw new Error('Session expirée. Veuillez vous reconnecter.');
+      }
+
       const json = await res.json();
       if (!json.success) { Alert.alert('Erreur', json.message ?? 'Mise à jour échouée.'); setSaving(false); return; }
 
-      // ── Étape 2 : Gérer les variantes ── ← NOUVEAU BLOC
-      const tok = session.token;
+      const varianteErrors = [];
 
-      // Variantes supprimées (étaient en DB mais plus dans la liste)
       const supprimees = variantesInitiales.filter(vi => !variantes.find(v => v.id === vi.id));
       for (const v of supprimees) {
         try {
-          await fetch(`${API_URL}/api/products/${id}/variation/${v.id}`, {
-            method: 'DELETE', headers: { 'X-Token': tok },
-          });
-        } catch (_) { }
+          await api.delete(`/api/products/variantes/delete-variation.php?id_prod=${id}&id=${v.id}`);
+        } catch (e) {
+          varianteErrors.push(`Suppression variante: ${e.message || 'échec'}`);
+        }
       }
 
-      // Nouvelles variantes (pas encore en DB)
       const nouvelles = variantes.filter(v => !v._existsInDB);
       for (const v of nouvelles) {
         try {
-          await fetch(`${API_URL}/api/products/${id}/variation`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Token': tok },
-            body: JSON.stringify(v),
-          });
-        } catch (_) { }
+          await api.post(`/api/products/variantes/create-variation.php?id_prod=${id}`, v);
+        } catch (e) {
+          varianteErrors.push(`Création variante: ${e.message || 'échec'}`);
+        }
       }
 
-      Alert.alert('Succès', 'Produit mis à jour avec succès.', [{ text: 'OK', onPress: () => router.back() }]);
+      if (varianteErrors.length === 0) {
+        Alert.alert('Succès', 'Produit mis à jour avec succès.', [{ text: 'OK', onPress: () => router.back() }]);
+      } else {
+        Alert.alert(
+          'Succès partiel',
+          `Produit mis à jour, mais ${varianteErrors.length} variante(s) ont échoué :\n\n${varianteErrors.slice(0, 3).join('\n')}${varianteErrors.length > 3 ? '\n...' : ''}`,
+          [{ text: 'OK' }]
+        );
+      }
     } catch (_) {
       Alert.alert('Erreur', 'Une erreur est survenue.');
     } finally {
@@ -211,24 +226,13 @@ export default function ModifierProduitScreen() {
     }
   };
 
-  const cats = categories.filter(c => !c.parent_id);
-  const sousOfSelected = categories.filter(c => c.parent_id == idCat);
-  const selectedCatNom = cats.find(c => c.id == idCat)?.nom ?? '';
-  const selectedSousNom = sousOfSelected.find(c => c.id == idSous)?.nom ?? '';
-
-  const Field = ({ label, required, ...props }) => (
-    <View style={styles.fieldWrap}>
-      <Text style={[styles.label, { color: sub }]}>{label}{required && <Text style={{ color: '#E74C3C' }}> *</Text>}</Text>
-      <TextInput
-        style={[styles.input, { borderColor: border, backgroundColor: inputBg, color: txt }]}
-        placeholderTextColor={sub}
-        {...props}
-      />
-    </View>
-  );
+  const cats             = categories.filter(c => !c.parent_id);
+  const sousOfSelected   = categories.filter(c => c.parent_id == idCat);
+  const selectedCatNom   = cats.find(c => c.id == idCat)?.nom ?? '';
+  const selectedSousNom  = sousOfSelected.find(c => c.id == idSous)?.nom ?? '';
 
   const TabBar = () => (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { borderBottomColor: border }]}>
       {TABS.map((t, i) => (
         <TouchableOpacity key={t} style={[styles.tabItem, i === activeTab && styles.tabActive]} onPress={() => setActiveTab(i)}>
           <Text style={[styles.tabTxt, { color: i === activeTab ? TEAL : sub }]}>{t}</Text>
@@ -249,7 +253,7 @@ export default function ModifierProduitScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: bg }]}>
       <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
-      <AppHeader session={session} darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} onLogout={() => router.replace('/(auth)/login')} />
+      <AppHeader session={session} darkMode={darkMode} onToggleDark={() => { const next = !darkMode; setDarkMode(next); saveDarkMode(next); }} onLogout={() => router.replace('/(auth)/login')} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.breadcrumbRow}>
           <Text style={[styles.breadcrumb, { color: sub }]}>Dashboard › Produits › </Text>
@@ -261,19 +265,18 @@ export default function ModifierProduitScreen() {
           <Text style={[styles.cardTitle, { color: txt }]}>Modifier le produit</Text>
           <TabBar />
 
-          {/* ── Tab 0 : Informations ── */}
           {activeTab === 0 && (
             <View>
               <Text style={[styles.sectionTitle, { color: txt }]}>Informations</Text>
-              <Field label="Nom produit" required value={nom} onChangeText={setNom} placeholder="Nom du produit" />
-              <Field label="Référence" value={ref} onChangeText={setRef} placeholder="Référence" />
-              <Field label="Marque" value={marque} onChangeText={setMarque} placeholder="Marque" />
-              <Field label="Modèle" value={modele} onChangeText={setModele} placeholder="Modèle" />
-              <Field label="Couleur" value={couleur} onChangeText={setCouleur} placeholder="Couleur" />
+              <Field label="Nom produit" required value={nom} onChangeText={setNom} placeholder="Nom du produit" sub={sub} inputBg={inputBg} txt={txt} border={border} />
+              <Field label="Référence" value={ref} onChangeText={setRef} placeholder="Référence" sub={sub} inputBg={inputBg} txt={txt} border={border} />
+              <Field label="Marque" value={marque} onChangeText={setMarque} placeholder="Marque" sub={sub} inputBg={inputBg} txt={txt} border={border} />
+              <Field label="Modèle" value={modele} onChangeText={setModele} placeholder="Modèle" sub={sub} inputBg={inputBg} txt={txt} border={border} />
+              <Field label="Couleur" value={couleur} onChangeText={setCouleur} placeholder="Couleur" sub={sub} inputBg={inputBg} txt={txt} border={border} />
               <View style={styles.row}>
-                <View style={{ flex: 1 }}><Field label="Prix d'achat" required value={prixAchat} onChangeText={setPrixAchat} placeholder="Prix d'achat" keyboardType="decimal-pad" /></View>
+                <View style={{ flex: 1 }}><Field label="Prix d'achat" required value={prixAchat} onChangeText={setPrixAchat} placeholder="Prix d'achat" keyboardType="decimal-pad" sub={sub} inputBg={inputBg} txt={txt} border={border} /></View>
                 <View style={{ width: 12 }} />
-                <View style={{ flex: 1 }}><Field label="Prix de vente" required value={prix} onChangeText={setPrix} placeholder="Prix de vente" keyboardType="decimal-pad" /></View>
+                <View style={{ flex: 1 }}><Field label="Prix de vente" required value={prix} onChangeText={setPrix} placeholder="Prix de vente" keyboardType="decimal-pad" sub={sub} inputBg={inputBg} txt={txt} border={border} /></View>
               </View>
               <View style={styles.fieldWrap}>
                 <Text style={[styles.label, { color: sub }]}>Description</Text>
@@ -282,9 +285,9 @@ export default function ModifierProduitScreen() {
                   value={description} onChangeText={setDescription} multiline numberOfLines={4} />
               </View>
               <View style={styles.row}>
-                <View style={{ flex: 1 }}><Field label="Seuil" value={seuil} onChangeText={setSeuil} keyboardType="numeric" /></View>
+                <View style={{ flex: 1 }}><Field label="Seuil" value={seuil} onChangeText={setSeuil} keyboardType="numeric" sub={sub} inputBg={inputBg} txt={txt} border={border} /></View>
                 <View style={{ width: 12 }} />
-                <View style={{ flex: 1 }}><Field label="Quantité" required value={qte} onChangeText={setQte} keyboardType="numeric" /></View>
+                <View style={{ flex: 1 }}><Field label="Quantité" required value={qte} onChangeText={setQte} keyboardType="numeric" sub={sub} inputBg={inputBg} txt={txt} border={border} /></View>
               </View>
               <View style={styles.navBtnRow}>
                 <TouchableOpacity style={[styles.nextBtn, { backgroundColor: TEAL }]} onPress={() => setActiveTab(1)}>
@@ -294,7 +297,6 @@ export default function ModifierProduitScreen() {
             </View>
           )}
 
-          {/* ── Tab 1 : Catégorie ── */}
           {activeTab === 1 && (
             <View>
               <Text style={[styles.sectionTitle, { color: txt }]}>Catégorie</Text>
@@ -305,7 +307,7 @@ export default function ModifierProduitScreen() {
               {showCatPicker && (
                 <View style={[styles.picker, { backgroundColor: card, borderColor: border }]}>
                   {cats.map(c => (
-                    <TouchableOpacity key={c.id} style={[styles.pickerItem, idCat == c.id && { backgroundColor: '#E8F7FB' }]}
+                    <TouchableOpacity key={c.id} style={[styles.pickerItem, { borderBottomColor: border }, idCat == c.id && { backgroundColor: '#E8F7FB' }]}
                       onPress={() => { setIdCat(c.id); setIdSous(0); setShowCatPicker(false); }}>
                       <Text style={{ color: idCat == c.id ? TEAL : txt, fontWeight: idCat == c.id ? '700' : '400' }}>{c.nom}</Text>
                     </TouchableOpacity>
@@ -320,7 +322,7 @@ export default function ModifierProduitScreen() {
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
                     {sousOfSelected.map(sc => (
-                      <TouchableOpacity key={sc.id} style={[styles.subChip, { backgroundColor: idSous == sc.id ? TEAL : '#F0F4F8', marginRight: 8 }]}
+                      <TouchableOpacity key={sc.id} style={[styles.subChip, { backgroundColor: idSous == sc.id ? TEAL : inputBg, marginRight: 8 }]}
                         onPress={() => setIdSous(idSous == sc.id ? 0 : sc.id)}>
                         <Text style={{ color: idSous == sc.id ? '#fff' : sub, fontSize: 12 }}>{sc.nom}</Text>
                       </TouchableOpacity>
@@ -339,7 +341,6 @@ export default function ModifierProduitScreen() {
             </View>
           )}
 
-          {/* ── Tab 2 : Images ── */}
           {activeTab === 2 && (
             <View>
               <Text style={[styles.sectionTitle, { color: txt }]}>Images</Text>
@@ -376,7 +377,6 @@ export default function ModifierProduitScreen() {
                 <TouchableOpacity style={[styles.prevBtn, { borderColor: border }]} onPress={() => setActiveTab(1)}>
                   <Text style={{ color: sub, fontWeight: '600' }}>← Précédent</Text>
                 </TouchableOpacity>
-                {/* Tab suivant = 3 (Variantes) au lieu de 3 (Confirmation) */}
                 <TouchableOpacity style={[styles.nextBtn, { backgroundColor: TEAL }]} onPress={() => setActiveTab(3)}>
                   <Text style={styles.nextBtnTxt}>Suivant →</Text>
                 </TouchableOpacity>
@@ -384,15 +384,10 @@ export default function ModifierProduitScreen() {
             </View>
           )}
 
-          {/* ── Tab 3 : Variantes ── ← NOUVEAU */}
           {activeTab === 3 && (
             <View>
               <Text style={[styles.sectionTitle, { color: txt }]}>Variantes</Text>
-              <VariantesSection
-                token={session?.token}
-                variantes={variantes}
-                onVariantesChange={setVariantes}
-              />
+              <VariantesSection token={session?.token} variantes={variantes} onVariantesChange={setVariantes} />
               <View style={styles.navBtnRow}>
                 <TouchableOpacity style={[styles.prevBtn, { borderColor: border }]} onPress={() => setActiveTab(2)}>
                   <Text style={{ color: sub, fontWeight: '600' }}>← Précédent</Text>
@@ -404,7 +399,6 @@ export default function ModifierProduitScreen() {
             </View>
           )}
 
-          {/* ── Tab 4 : Confirmation ── (était Tab 3) */}
           {activeTab === 4 && (
             <View style={styles.confirmContainer}>
               <Text style={[styles.sectionTitle, { color: txt }]}>Confirmation</Text>
@@ -414,7 +408,6 @@ export default function ModifierProduitScreen() {
                 <Text style={[styles.confirmSub, { color: sub }]}>Confirmer les modifications</Text>
               </View>
               <View style={styles.navBtnRow}>
-                {/* Précédent = Tab 3 (Variantes) au lieu de Tab 2 */}
                 <TouchableOpacity style={[styles.prevBtn, { borderColor: border }]} onPress={() => setActiveTab(3)}>
                   <Text style={{ color: sub, fontWeight: '600' }}>← Précédent</Text>
                 </TouchableOpacity>
@@ -424,51 +417,50 @@ export default function ModifierProduitScreen() {
               </View>
             </View>
           )}
-
         </View>
       </ScrollView>
-      <AppFooter />
+      <AppFooter darkMode={darkMode} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { paddingHorizontal: 16, paddingBottom: 80 },
-  breadcrumbRow: { flexDirection: 'row', marginTop: 14, marginBottom: 4, flexWrap: 'wrap' },
-  breadcrumb: { fontSize: 12 },
-  pageTitle: { fontSize: 22, fontWeight: '800', marginBottom: 14 },
-  card: { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  cardTitle: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 14 },
-  tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', marginBottom: 18 },
-  tabItem: { flex: 1, alignItems: 'center', paddingBottom: 10, position: 'relative' },
-  tabTxt: { fontSize: 11, fontWeight: '600' },
-  tabActive: {},
-  tabUnderline: { position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 2, backgroundColor: TEAL, borderRadius: 2 },
-  label: { fontSize: 13, marginBottom: 5 },
-  fieldWrap: { marginBottom: 12 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14 },
-  textarea: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, height: 90, textAlignVertical: 'top' },
-  row: { flexDirection: 'row' },
-  select: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 4 },
-  picker: { borderWidth: 1, borderRadius: 10, marginBottom: 8, overflow: 'hidden' },
-  pickerItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  subChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  navBtnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
-  prevBtn: { borderWidth: 1.5, borderRadius: 22, paddingHorizontal: 20, paddingVertical: 11 },
-  nextBtn: { borderRadius: 22, paddingHorizontal: 24, paddingVertical: 11 },
-  nextBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  imgGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  imgItem: { width: '47%' },
-  filePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  filePickerBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
-  fileNameTxt: { fontSize: 11, flex: 1 },
-  imgPreview: { width: '100%', height: 120, borderRadius: 10 },
-  imgPlaceholder: { width: '100%', height: 120, borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  safe:             { flex: 1 },
+  scroll:           { paddingHorizontal: 16, paddingBottom: 80 },
+  breadcrumbRow:    { flexDirection: 'row', marginTop: 14, marginBottom: 4, flexWrap: 'wrap' },
+  breadcrumb:       { fontSize: 12 },
+  pageTitle:        { fontSize: 22, fontWeight: '800', marginBottom: 14 },
+  card:             { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  cardTitle:        { fontSize: 17, fontWeight: '800', marginBottom: 14 },
+  sectionTitle:     { fontSize: 15, fontWeight: '800', marginBottom: 14 },
+  tabBar:           { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', marginBottom: 18 },
+  tabItem:          { flex: 1, alignItems: 'center', paddingBottom: 10, position: 'relative' },
+  tabTxt:           { fontSize: 11, fontWeight: '600' },
+  tabActive:        {},
+  tabUnderline:     { position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 2, backgroundColor: TEAL, borderRadius: 2 },
+  label:            { fontSize: 13, marginBottom: 5 },
+  fieldWrap:        { marginBottom: 12 },
+  input:            { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14 },
+  textarea:         { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, height: 90, textAlignVertical: 'top' },
+  row:              { flexDirection: 'row' },
+  select:           { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 4 },
+  picker:           { borderWidth: 1, borderRadius: 10, marginBottom: 8, overflow: 'hidden' },
+  pickerItem:       { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  subChip:          { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  navBtnRow:        { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+  prevBtn:          { borderWidth: 1.5, borderRadius: 22, paddingHorizontal: 20, paddingVertical: 11 },
+  nextBtn:          { borderRadius: 22, paddingHorizontal: 24, paddingVertical: 11 },
+  nextBtnTxt:       { color: '#fff', fontWeight: '700', fontSize: 14 },
+  imgGrid:          { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  imgItem:          { width: '47%' },
+  filePickerRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  filePickerBtn:    { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  fileNameTxt:      { fontSize: 11, flex: 1 },
+  imgPreview:       { width: '100%', height: 120, borderRadius: 10 },
+  imgPlaceholder:   { width: '100%', height: 120, borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   confirmContainer: {},
-  confirmCenter: { alignItems: 'center', paddingVertical: 30 },
-  confirmIcon: { marginBottom: 16 },
-  confirmTitle: { fontSize: 20, fontWeight: '800', marginBottom: 6 },
-  confirmSub: { fontSize: 14 },
+  confirmCenter:    { alignItems: 'center', paddingVertical: 30 },
+  confirmIcon:      { marginBottom: 16 },
+  confirmTitle:     { fontSize: 20, fontWeight: '800', marginBottom: 6 },
+  confirmSub:       { fontSize: 14 },
 });

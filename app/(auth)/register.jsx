@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 
 import { API_URL } from '../../config';
+import { loadDarkMode } from '../../utils/darkMode';
+import { DARK, LIGHT } from '../../utils/theme';
 const TEAL      = '#29B6D8';
 const TEAL_LIGHT = 'rgba(41,182,216,0.08)';
 
@@ -30,19 +32,24 @@ export default function RegisterScreen() {
     const [cityModalVisible, setCityModalVisible] = useState(false);
     const [citySearch,       setCitySearch]       = useState('');
     const [submitting,       setSubmitting]       = useState(false);
+    const [darkMode,         setDarkMode]         = useState(false);
     const [form, setForm] = useState({
         fullName: '', shopName: '', cityId: null, cityLabel: '',
         address: '', phone: '', email: '', password: '',
     });
 
+    const T = darkMode ? DARK : LIGHT;
+
     const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
     useEffect(() => {
         const load = async () => {
             try {
                 const [rPacks, rVilles] = await Promise.all([
-                    fetch(`${API_URL}/api/packs`),
-                    fetch(`${API_URL}/api/villes`),
+                    fetch(`${API_URL}/api/packs/packs-list.php`),
+                    fetch(`${API_URL}/api/villes/villes-list.php`),
                 ]);
                 const dPacks  = await rPacks.json();
                 const dVilles = await rVilles.json();
@@ -71,7 +78,7 @@ export default function RegisterScreen() {
 
         setSubmitting(true);
         try {
-            const res  = await fetch(`${API_URL}/api/auth/register`, {
+            const res  = await fetch(`${API_URL}/api/auth/register.php`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -101,21 +108,21 @@ export default function RegisterScreen() {
 
     if (loadingInit) {
         return (
-            <View style={styles.loaderScreen}>
+            <View style={[styles.loaderScreen, { backgroundColor: T.bg }]}>
                 <ActivityIndicator size="large" color={TEAL} />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.safe}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView style={[styles.safe, { backgroundColor: T.bg }]}>
+            <StatusBar barStyle={T.barStyle} backgroundColor={T.statusBg} />
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                <Text style={styles.pageTitle}>Choisissez votre plan</Text>
+                <Text style={[styles.pageTitle, { color: T.text }]}>Choisissez votre plan</Text>
 
                 <View style={styles.planGrid}>
                     {plans.map(plan => {
@@ -123,23 +130,23 @@ export default function RegisterScreen() {
                         return (
                             <TouchableOpacity
                                 key={plan.id}
-                                style={[styles.planCard, isSelected && styles.planCardSelected]}
+                                style={[styles.planCard, { backgroundColor: T.card, borderColor: T.border }, isSelected && styles.planCardSelected]}
                                 onPress={() => setSelectedPlan(plan.id)}
                                 activeOpacity={0.85}
                             >
-                                <Text style={[styles.planName, isSelected && styles.planNameSelected]}>
+                                <Text style={[styles.planName, { color: T.text }, isSelected && styles.planNameSelected]}>
                                     {plan.nom}
                                 </Text>
-                                <Text style={styles.planFeature}>{plan.nb_produit} produits</Text>
-                                <Text style={styles.planFeature}>{plan.nb_cmd} commandes/mois</Text>
-                                <Text style={styles.planFeature}>{plan.nb_user} utilisateur(s)</Text>
+                                <Text style={[styles.planFeature, { color: T.sub }]}>{plan.nb_produit} produits</Text>
+                                <Text style={[styles.planFeature, { color: T.sub }]}>{plan.nb_cmd} commandes/mois</Text>
+                                <Text style={[styles.planFeature, { color: T.sub }]}>{plan.nb_user} utilisateur(s)</Text>
                                 <View style={styles.priceRow}>
-                                    <Text style={[styles.planPrice, isSelected && styles.planPriceSelected]}>
+                                    <Text style={[styles.planPrice, { color: T.text }, isSelected && styles.planPriceSelected]}>
                                         {plan.prix}
                                     </Text>
                                     <View style={styles.priceMeta}>
-                                        <Text style={styles.planCurrency}>DT</Text>
-                                        <Text style={styles.planUnit}>HT/mois</Text>
+                                        <Text style={[styles.planCurrency, { color: T.sub }]}>DT</Text>
+                                        <Text style={[styles.planUnit, { color: T.sub }]}>HT/mois</Text>
                                     </View>
                                 </View>
                             </TouchableOpacity>
@@ -151,20 +158,20 @@ export default function RegisterScreen() {
                     <Text style={styles.compareText}>Comparer nos packs</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.sectionTitle}>Informations personnelles</Text>
+                <Text style={[styles.sectionTitle, { color: T.text }]}>Informations personnelles</Text>
 
                 <View style={styles.row}>
                     <TextInput
-                        style={[styles.input, styles.inputHalf]}
+                        style={[styles.input, styles.inputHalf, { backgroundColor: T.searchBg, color: T.text }]}
                         placeholder="Nom & Prénom"
-                        placeholderTextColor="#b0b8c1"
+                        placeholderTextColor={T.sub}
                         value={form.fullName}
                         onChangeText={v => updateField('fullName', v)}
                     />
                     <TextInput
-                        style={[styles.input, styles.inputHalf]}
+                        style={[styles.input, styles.inputHalf, { backgroundColor: T.searchBg, color: T.text }]}
                         placeholder="Nom du Boutique"
-                        placeholderTextColor="#b0b8c1"
+                        placeholderTextColor={T.sub}
                         value={form.shopName}
                         onChangeText={v => updateField('shopName', v)}
                     />
@@ -172,27 +179,27 @@ export default function RegisterScreen() {
 
                 <View style={styles.row}>
                     <TouchableOpacity
-                        style={[styles.input, styles.inputHalf, styles.pickerInput]}
+                        style={[styles.input, styles.inputHalf, styles.pickerInput, { backgroundColor: T.searchBg }]}
                         onPress={() => { setCitySearch(''); setCityModalVisible(true); }}
                     >
-                        <Text style={form.cityLabel ? styles.pickerText : styles.pickerPlaceholder}>
+                        <Text style={form.cityLabel ? [styles.pickerText, { color: T.text }] : [styles.pickerPlaceholder, { color: T.sub }]}>
                             {form.cityLabel || 'Sélectionnez une ville'}
                         </Text>
-                        <Ionicons name="chevron-down" size={14} color="#b0b8c1" />
+                        <Ionicons name="chevron-down" size={14} color={T.sub} />
                     </TouchableOpacity>
                     <TextInput
-                        style={[styles.input, styles.inputHalf]}
+                        style={[styles.input, styles.inputHalf, { backgroundColor: T.searchBg, color: T.text }]}
                         placeholder="Adresse Complète"
-                        placeholderTextColor="#b0b8c1"
+                        placeholderTextColor={T.sub}
                         value={form.address}
                         onChangeText={v => updateField('address', v)}
                     />
                 </View>
 
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: T.searchBg, color: T.text }]}
                     placeholder="Numéro de téléphone"
-                    placeholderTextColor="#b0b8c1"
+                    placeholderTextColor={T.sub}
                     keyboardType="phone-pad"
                     value={form.phone}
                     onChangeText={v => updateField('phone', v)}
@@ -200,19 +207,19 @@ export default function RegisterScreen() {
 
                 <View style={styles.row}>
                     <TextInput
-                        style={[styles.input, styles.inputHalf]}
+                        style={[styles.input, styles.inputHalf, { backgroundColor: T.searchBg, color: T.text }]}
                         placeholder="Email"
-                        placeholderTextColor="#b0b8c1"
+                        placeholderTextColor={T.sub}
                         keyboardType="email-address"
                         autoCapitalize="none"
                         value={form.email}
                         onChangeText={v => updateField('email', v)}
                     />
-                    <View style={[styles.input, styles.inputHalf, styles.passwordWrap]}>
+                    <View style={[styles.input, styles.inputHalf, styles.passwordWrap, { backgroundColor: T.searchBg }]}>
                         <TextInput
-                            style={styles.passwordInput}
+                            style={[styles.passwordInput, { color: T.text }]}
                             placeholder="Mot de passe"
-                            placeholderTextColor="#b0b8c1"
+                            placeholderTextColor={T.sub}
                             secureTextEntry={!showPassword}
                             autoCapitalize="none"
                             value={form.password}
@@ -222,17 +229,17 @@ export default function RegisterScreen() {
                             <Ionicons
                                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                                 size={18}
-                                color="#b0b8c1"
+                                color={T.sub}
                             />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 <TouchableOpacity style={styles.cguRow} onPress={() => setAcceptCGU(!acceptCGU)}>
-                    <View style={[styles.checkbox, acceptCGU && styles.checkboxChecked]}>
+                    <View style={[styles.checkbox, { borderColor: T.border }, acceptCGU && styles.checkboxChecked]}>
                         {acceptCGU && <Ionicons name="checkmark" size={12} color="#fff" />}
                     </View>
-                    <Text style={styles.cguText}>
+                    <Text style={[styles.cguText, { color: T.sub }]}>
                         J'accepte les{' '}
                         <Text style={{ color: TEAL, fontWeight: '700' }}>conditions générales d'utilisation</Text>
                     </Text>
@@ -249,7 +256,7 @@ export default function RegisterScreen() {
                     }
                 </TouchableOpacity>
 
-                <Text style={styles.loginText}>
+                <Text style={[styles.loginText, { color: T.sub }]}>
                     Déjà un compte ?{' '}
                     <Text style={styles.loginLink} onPress={() => router.push('/(auth)/login')}>
                         Se connecter
@@ -259,19 +266,19 @@ export default function RegisterScreen() {
 
             <Modal visible={cityModalVisible} transparent animationType="slide" onRequestClose={() => setCityModalVisible(false)}>
                 <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCityModalVisible(false)} />
-                <View style={styles.modalSheet}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Choisir une ville</Text>
+                <View style={[styles.modalSheet, { backgroundColor: T.card }]}>
+                    <View style={[styles.modalHeader, { borderBottomColor: T.border }]}>
+                        <Text style={[styles.modalTitle, { color: T.text }]}>Choisir une ville</Text>
                         <TouchableOpacity onPress={() => setCityModalVisible(false)}>
-                            <Ionicons name="close" size={22} color="#334155" />
+                            <Ionicons name="close" size={22} color={T.sub} />
                         </TouchableOpacity>
                     </View>
-                    <View style={styles.searchWrap}>
-                        <Ionicons name="search-outline" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
+                    <View style={[styles.searchWrap, { backgroundColor: T.searchBg }]}>
+                        <Ionicons name="search-outline" size={16} color={T.sub} style={{ marginRight: 8 }} />
                         <TextInput
-                            style={styles.searchInput}
+                            style={[styles.searchInput, { color: T.text }]}
                             placeholder="Rechercher..."
-                            placeholderTextColor="#94a3b8"
+                            placeholderTextColor={T.sub}
                             value={citySearch}
                             onChangeText={setCitySearch}
                             autoFocus
@@ -280,8 +287,8 @@ export default function RegisterScreen() {
                     <FlatList
                         data={filteredVilles}
                         keyExtractor={item => String(item.id)}
-                        ItemSeparatorComponent={() => <View style={styles.citySeparator} />}
-                        ListEmptyComponent={<Text style={styles.noResult}>Aucune ville trouvée</Text>}
+                        ItemSeparatorComponent={() => <View style={[styles.citySeparator, { backgroundColor: T.border }]} />}
+                        ListEmptyComponent={<Text style={[styles.noResult, { color: T.sub }]}>Aucune ville trouvée</Text>}
                         renderItem={({ item }) => {
                             const isSelected = form.cityId === item.id;
                             return (
@@ -296,10 +303,10 @@ export default function RegisterScreen() {
                                     <Ionicons
                                         name={isSelected ? 'location' : 'location-outline'}
                                         size={18}
-                                        color={isSelected ? TEAL : '#94a3b8'}
+                                        color={isSelected ? TEAL : T.sub}
                                         style={{ marginRight: 12 }}
                                     />
-                                    <Text style={[styles.cityItemText, isSelected && styles.cityItemTextSelected]}>
+                                    <Text style={[styles.cityItemText, { color: T.text }, isSelected && styles.cityItemTextSelected]}>
                                         {item.ville}
                                     </Text>
                                     {isSelected && <Ionicons name="checkmark" size={16} color={TEAL} style={{ marginLeft: 'auto' }} />}

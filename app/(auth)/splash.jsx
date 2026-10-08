@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react'
 
 import {
@@ -90,21 +89,21 @@ export default function SplashScreen() {
             <View style={styles.pillIcon}>
               <View style={styles.pillIconDot} />
             </View>
-            <Text style={styles.pillText}>E-Commerce</Text>
+            <Text style={styles.pillText}>Ventes</Text>
           </View>
 
           <View style={styles.pill}>
             <View style={styles.pillIcon}>
               <View style={styles.pillIconDot} />
             </View>
-            <Text style={styles.pillText}>Facturation</Text>
+            <Text style={styles.pillText}>Stock</Text>
           </View>
 
           <View style={styles.pill}>
             <View style={styles.pillIcon}>
               <View style={styles.pillIconDot} />
             </View>
-            <Text style={styles.pillText}>Pro Manager</Text>
+            <Text style={styles.pillText}>Prévision</Text>
           </View>
 
         </View>
@@ -262,7 +261,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#112240',   
+    justifyContent: 'center',
+    backgroundColor: '#112240',
     borderWidth: 1,
     borderColor: 'rgba(41,182,216,0.4)',
     borderRadius: 30,             
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     color: '#29B6D8',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "90211640720",
+    "project_id": "ezycom-mobile",
+    "storage_bucket": "ezycom-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:90211640720:android:8e5e4ce3ce0de1f586ff15",
+        "android_client_info": {
+          "package_name": "com.ezycom.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAw3f3r-RbTepvPOUvqM6r2vO9uiTEb6TA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

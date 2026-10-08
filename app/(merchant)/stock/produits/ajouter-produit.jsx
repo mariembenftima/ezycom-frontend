@@ -1,5 +1,3 @@
-// app/(merchant)/stock/produits/ajouter-produit.jsx
-
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -20,28 +18,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import VariantesSection from '../../../../components/VariantesSection';
 import { API_URL } from '../../../../config';
+import api from '../../../../utils/api';
 import { loadSession } from '../../../../utils/auth';
+import { loadDarkMode } from '../../../../utils/darkMode';
+import { DARK, LIGHT, TEAL, TEAL_BG } from '../../../../utils/theme';
 
-const TEAL = '#29B6D8';
-const TEAL_BG = '#E8F8FC';
-const GRAY = '#6B7280';
-const BORDER = '#E5E7EB';
-const RED = '#EF4444';
+const RED    = '#EF4444';
 const MAX_IMAGES = 4;
 
-// ── Field hors du composant — évite la fermeture du clavier au re-render ────
 const Field = ({ label, value, onChange, placeholder, keyboardType = 'default',
-  multiline = false, required = false, hasError = false, errorMessage = '' }) => (
+  multiline = false, required = false, hasError = false, errorMessage = '', T }) => (
   <View style={styles.fieldWrapper}>
-    <Text style={styles.fieldLabel}>
+    <Text style={[styles.fieldLabel, { color: T.sub }]}>
       {label}{required && <Text style={{ color: RED }}> *</Text>}
     </Text>
     <TextInput
-      style={[styles.input, multiline && styles.inputMultiline, hasError && styles.inputError]}
+      style={[styles.input, { borderColor: T.border, backgroundColor: T.card, color: T.text }, multiline && styles.inputMultiline, hasError && styles.inputError]}
       value={value}
       onChangeText={onChange}
       placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
+      placeholderTextColor={T.sub}
       keyboardType={keyboardType}
       multiline={multiline}
       numberOfLines={multiline ? 4 : 1}
@@ -52,36 +48,40 @@ const Field = ({ label, value, onChange, placeholder, keyboardType = 'default',
 );
 
 export default function AjouterProduit() {
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [nom, setNom] = useState('');
-  const [ref, setRef] = useState('');
-  const [prix, setPrix] = useState('');
-  const [prixAchat, setPrixAchat] = useState('');
-  const [qte, setQte] = useState('');
+  const [darkMode,    setDarkMode]    = useState(false);
+  const [token,       setToken]       = useState(null);
+  const [loading,     setLoading]     = useState(false);
+  const [nom,         setNom]         = useState('');
+  const [ref,         setRef]         = useState('');
+  const [prix,        setPrix]        = useState('');
+  const [prixAchat,   setPrixAchat]   = useState('');
+  const [qte,         setQte]         = useState('');
   const [description, setDescription] = useState('');
-  const [idCat, setIdCat] = useState('');
-  const [idSousCat, setIdSousCat] = useState('');
-  const [categories, setCategories] = useState([]);
-  const [images, setImages] = useState([]);
-  const [variantes, setVariantes] = useState([]);   // ← NOUVEAU
-  const [errors, setErrors] = useState({});
+  const [idCat,       setIdCat]       = useState('');
+  const [idSousCat,   setIdSousCat]   = useState('');
+  const [categories,  setCategories]  = useState([]);
+  const [images,      setImages]      = useState([]);
+  const [variantes,   setVariantes]   = useState([]);
+  const [errors,      setErrors]      = useState({});
+
+  const T = darkMode ? DARK : LIGHT;
+
+  useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
   useEffect(() => {
     (async () => {
       const session = await loadSession();
       if (!session?.token) { router.replace('/(auth)/login'); return; }
       setToken(session.token);
-      fetchCategories(session.token);
+      fetchCategories();
     })();
   }, []);
 
-  const fetchCategories = async (tok) => {
+  const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: { 'X-Token': tok } });
-      const data = await res.json();
+      const data = await api.get('/api/categories/categories-list.php');
       if (data.success) setCategories(Array.isArray(data.data) ? data.data : []);
-    } catch (_) { }
+    } catch (_) {}
   };
 
   const validate = () => {
@@ -118,52 +118,52 @@ export default function AjouterProduit() {
 
   const removeImage = (index) => setImages(prev => prev.filter((_, i) => i !== index));
 
-  const uploadImage = async (imageObj, productId, tok) => {
+  const uploadImage = async (imageObj, productId) => {
     const fd = new FormData();
     fd.append('image', { uri: imageObj.uri, name: imageObj.name, type: imageObj.type });
-    const res = await fetch(`${API_URL}/api/products/images/upload-image.php?product_id=${productId}`, { method: 'POST', headers: { 'X-Token': tok }, body: fd });
+    const res = await fetch(`${API_URL}/api/products/images/upload-image.php?id=${productId}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd,
+    });
+
+    if (res.status === 401) {
+      const { clearSession } = await import('../../../../utils/auth');
+      await clearSession();
+      router.replace('/(auth)/login');
+      throw new Error('Session expirée. Veuillez vous reconnecter.');
+    }
+
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.message || 'Erreur upload image');
   };
 
-  // ── NOUVEAU : upload variante ──────────────────────────────────────────────
-  const uploadVariante = async (variante, productId, tok) => {
-    const res = await fetch(`${API_URL}/api/products/produits/list-variation.php?product_id=${productId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Token': tok },
-      body: JSON.stringify(variante),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.message || 'Erreur variante');
+  const uploadVariante = async (variante, productId) => {
+    const data = await api.post(`/api/products/variantes/create-variation.php?id_prod=${productId}`, variante);
+    if (!data.success) throw new Error(data.message || 'Erreur variante');
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      // Étape 1 : créer le produit
-      const res = await fetch(`${API_URL}/api/products/produits/products-create.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({
-          nom: nom.trim(), ref: ref.trim(),
-          prix: parseFloat(prix) || 0, prix_achat: parseFloat(prixAchat) || 0,
-          qte: parseInt(qte) || 0, description: description.trim(),
-          id_cat: idCat ? parseInt(idCat) : null, id_sous_cat: idSousCat ? parseInt(idSousCat) : null,
-          etat: 1,
-        }),
+      const data = await api.post('/api/products/produits/products-create.php', {
+        nom: nom.trim(), ref: ref.trim(),
+        prix: parseFloat(prix) || 0, prix_achat: parseFloat(prixAchat) || 0,
+        qte: parseInt(qte) || 0, description: description.trim(),
+        id_cat: idCat ? parseInt(idCat) : null,
+        id_sous_cat: idSousCat ? parseInt(idSousCat) : null,
+        etat: 1,
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) { Alert.alert('Erreur', data.message || 'Impossible de créer le produit.'); setLoading(false); return; }
+      if (!data.success) { Alert.alert('Erreur', data.message || 'Impossible de créer le produit.'); setLoading(false); return; }
       const productId = data.data?.id;
 
-      // Étape 2 : images
       if (images.length > 0 && productId) {
         const errs = [];
         for (let i = 0; i < images.length; i++) {
           setImages(prev => prev.map((img, idx) => idx === i ? { ...img, uploading: true } : img));
           try {
-            await uploadImage(images[i], productId, token);
+            await uploadImage(images[i], productId);
             setImages(prev => prev.map((img, idx) => idx === i ? { ...img, uploading: false, uploaded: true } : img));
           } catch (err) {
             errs.push(`Image ${i + 1} : ${err.message}`);
@@ -173,11 +173,10 @@ export default function AjouterProduit() {
         if (errs.length > 0) { Alert.alert('Erreurs images', errs.join('\n'), [{ text: 'OK', onPress: () => router.back() }]); setLoading(false); return; }
       }
 
-      // Étape 3 : variantes   ← NOUVEAU BLOC
       if (variantes.length > 0 && productId) {
         const errs = [];
         for (const v of variantes) {
-          try { await uploadVariante(v, productId, token); }
+          try { await uploadVariante(v, productId); }
           catch (err) { errs.push(`Variante ${v._label || ''} : ${err.message}`); }
         }
         if (errs.length > 0) { Alert.alert('Erreurs variantes', errs.join('\n'), [{ text: 'OK', onPress: () => router.back() }]); setLoading(false); return; }
@@ -192,9 +191,9 @@ export default function AjouterProduit() {
   };
 
   const renderImages = () => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Photos du produit</Text>
-      <Text style={styles.cardSub}>{images.length}/{MAX_IMAGES} — Appuyez pour ajouter</Text>
+    <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+      <Text style={[styles.cardTitle, { color: T.text }]}>Photos du produit</Text>
+      <Text style={[styles.cardSub, { color: T.sub }]}>{images.length}/{MAX_IMAGES} — Appuyez pour ajouter</Text>
       <View style={styles.imageGrid}>
         {images.map((img, index) => (
           <View key={index} style={styles.imageSlot}>
@@ -214,73 +213,68 @@ export default function AjouterProduit() {
             <TouchableOpacity style={styles.addSlotGalerie} onPress={pickImage} activeOpacity={0.7}>
               <Text style={styles.addSlotIcon}>🖼</Text><Text style={styles.addSlotLabel}>Galerie</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.addSlotCamera} onPress={takePhoto} activeOpacity={0.7}>
-              <Text style={styles.addSlotIcon}>📷</Text><Text style={styles.addSlotLabel}>Caméra</Text>
+            <TouchableOpacity style={[styles.addSlotCamera, { backgroundColor: T.searchBg, borderColor: T.border }]} onPress={takePhoto} activeOpacity={0.7}>
+              <Text style={styles.addSlotIcon}>📷</Text><Text style={[styles.addSlotLabel, { color: T.sub }]}>Caméra</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
-      <Text style={styles.imageHint}>Formats acceptés : JPG, PNG, WEBP — Max 5 Mo par image</Text>
+      <Text style={[styles.imageHint, { color: T.sub }]}>Formats acceptés : JPG, PNG, WEBP — Max 5 Mo par image</Text>
     </View>
   );
 
-
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: T.bg }]}>
+      <StatusBar barStyle={T.barStyle} backgroundColor={T.statusBg} />
+      <View style={[styles.header, { backgroundColor: T.card, borderBottomColor: T.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ajouter un produit</Text>
+        <Text style={[styles.headerTitle, { color: T.text }]}>Ajouter un produit</Text>
         <View style={{ width: 36 }} />
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* Informations */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Informations générales</Text>
-            <Field label="Nom du produit" value={nom} onChange={setNom} placeholder="Ex : Cafetière électrique" required hasError={!!errors.nom} errorMessage={errors.nom} />
+          <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+            <Text style={[styles.cardTitle, { color: T.text }]}>Informations générales</Text>
+            <Field label="Nom du produit" value={nom} onChange={setNom} placeholder="Ex : Cafetière électrique" required hasError={!!errors.nom} errorMessage={errors.nom} T={T} />
             <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 8 }}><Field label="Référence" value={ref} onChange={setRef} placeholder="REF-001" hasError={!!errors.ref} errorMessage={errors.ref} /></View>
-              <View style={{ flex: 1, marginLeft: 8 }}><Field label="Quantité" value={qte} onChange={setQte} placeholder="0" keyboardType="numeric" hasError={!!errors.qte} errorMessage={errors.qte} /></View>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Référence" value={ref} onChange={setRef} placeholder="REF-001" hasError={!!errors.ref} errorMessage={errors.ref} T={T} /></View>
+              <View style={{ flex: 1, marginLeft: 8 }}><Field label="Quantité" value={qte} onChange={setQte} placeholder="0" keyboardType="numeric" hasError={!!errors.qte} errorMessage={errors.qte} T={T} /></View>
             </View>
-            <Field label="Description" value={description} onChange={setDescription} placeholder="Décrivez votre produit..." multiline hasError={!!errors.description} errorMessage={errors.description} />
+            <Field label="Description" value={description} onChange={setDescription} placeholder="Décrivez votre produit..." multiline hasError={!!errors.description} errorMessage={errors.description} T={T} />
           </View>
 
-          {/* Prix */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Prix</Text>
+          <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+            <Text style={[styles.cardTitle, { color: T.text }]}>Prix</Text>
             <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 8 }}><Field label="Prix de vente (TND)" value={prix} onChange={setPrix} placeholder="0.000" keyboardType="decimal-pad" required hasError={!!errors.prix} errorMessage={errors.prix} /></View>
-              <View style={{ flex: 1, marginLeft: 8 }}><Field label="Prix d'achat (TND)" value={prixAchat} onChange={setPrixAchat} placeholder="0.000" keyboardType="decimal-pad" hasError={!!errors.prixAchat} errorMessage={errors.prixAchat} /></View>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Prix de vente (TND)" value={prix} onChange={setPrix} placeholder="0.000" keyboardType="decimal-pad" required hasError={!!errors.prix} errorMessage={errors.prix} T={T} /></View>
+              <View style={{ flex: 1, marginLeft: 8 }}><Field label="Prix d'achat (TND)" value={prixAchat} onChange={setPrixAchat} placeholder="0.000" keyboardType="decimal-pad" hasError={!!errors.prixAchat} errorMessage={errors.prixAchat} T={T} /></View>
             </View>
           </View>
 
-          {/* Catégorie */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Catégorie</Text>
+          <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+            <Text style={[styles.cardTitle, { color: T.text }]}>Catégorie</Text>
             <View style={styles.fieldWrapper}>
-              <Text style={styles.fieldLabel}>Catégorie principale</Text>
+              <Text style={[styles.fieldLabel, { color: T.sub }]}>Catégorie principale</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                 {categories.filter(c => !c.parent_id).map(cat => (
-                  <TouchableOpacity key={cat.id} style={[styles.chip, idCat === String(cat.id) && styles.chipActive]}
+                  <TouchableOpacity key={cat.id} style={[styles.chip, { backgroundColor: T.searchBg, borderColor: T.border }, idCat === String(cat.id) && styles.chipActive]}
                     onPress={() => { setIdCat(p => p === String(cat.id) ? '' : String(cat.id)); setIdSousCat(''); }}>
-                    <Text style={[styles.chipText, idCat === String(cat.id) && styles.chipTextActive]}>{cat.nom}</Text>
+                    <Text style={[styles.chipText, { color: T.sub }, idCat === String(cat.id) && styles.chipTextActive]}>{cat.nom}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
             {idCat !== '' && categories.filter(c => String(c.parent_id) === idCat).length > 0 && (
               <View style={styles.fieldWrapper}>
-                <Text style={styles.fieldLabel}>Sous-catégorie</Text>
+                <Text style={[styles.fieldLabel, { color: T.sub }]}>Sous-catégorie</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                   {categories.filter(c => String(c.parent_id) === idCat).map(sc => (
-                    <TouchableOpacity key={sc.id} style={[styles.chip, idSousCat === String(sc.id) && styles.chipActive]}
+                    <TouchableOpacity key={sc.id} style={[styles.chip, { backgroundColor: T.searchBg, borderColor: T.border }, idSousCat === String(sc.id) && styles.chipActive]}
                       onPress={() => setIdSousCat(p => p === String(sc.id) ? '' : String(sc.id))}>
-                      <Text style={[styles.chipText, idSousCat === String(sc.id) && styles.chipTextActive]}>{sc.nom}</Text>
+                      <Text style={[styles.chipText, { color: T.sub }, idSousCat === String(sc.id) && styles.chipTextActive]}>{sc.nom}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -288,13 +282,10 @@ export default function AjouterProduit() {
             )}
           </View>
 
-          {/* Images */}
           {renderImages()}
 
-          {/* Variantes ← NOUVEAU */}
           <VariantesSection token={token} variantes={variantes} onVariantesChange={setVariantes} />
 
-          {/* Bouton */}
           <TouchableOpacity style={[styles.submitBtn, loading && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
             {loading ? (
               <View style={styles.submitLoading}>
@@ -317,43 +308,43 @@ export default function AjouterProduit() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: BORDER },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 28, color: TEAL, lineHeight: 32 },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#111827' },
-  scroll: { padding: 16, gap: 12 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: BORDER, marginBottom: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 4 },
-  cardSub: { fontSize: 12, color: GRAY, marginBottom: 12 },
-  fieldWrapper: { marginBottom: 14 },
-  fieldLabel: { fontSize: 13, fontWeight: '500', color: '#374151', marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: BORDER, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#111827', backgroundColor: '#fff' },
-  inputMultiline: { height: 100, paddingTop: 10 },
-  inputError: { borderColor: RED },
-  errorText: { fontSize: 12, color: RED, marginTop: 4 },
-  row: { flexDirection: 'row' },
-  chipScroll: { flexDirection: 'row' },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: BORDER, marginRight: 8, backgroundColor: '#F9FAFB' },
-  chipActive: { backgroundColor: TEAL_BG, borderColor: TEAL },
-  chipText: { fontSize: 13, color: GRAY },
-  chipTextActive: { color: TEAL, fontWeight: '600' },
-  imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginVertical: 12 },
-  imageSlot: { width: 80, height: 80, borderRadius: 10, overflow: 'hidden', position: 'relative' },
-  imageThumbnail: { width: '100%', height: '100%', resizeMode: 'cover' },
-  imageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-  imageBadge: { position: 'absolute', bottom: 4, left: 4, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  imageBadgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
-  imageDelete: { position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
-  imageDeleteText: { color: '#fff', fontSize: 14, lineHeight: 18, fontWeight: '700' },
-  addSlotWrapper: { flexDirection: 'row', gap: 8 },
-  addSlotGalerie: { width: 80, height: 80, borderRadius: 10, borderWidth: 1.5, borderColor: TEAL, borderStyle: 'dashed', backgroundColor: TEAL_BG, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  addSlotCamera: { width: 80, height: 80, borderRadius: 10, borderWidth: 1.5, borderColor: BORDER, borderStyle: 'dashed', backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  addSlotIcon: { fontSize: 22 },
-  addSlotLabel: { fontSize: 10, color: GRAY },
-  imageHint: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
-  submitBtn: { backgroundColor: TEAL, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  submitBtnDisabled: { opacity: 0.7 },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  submitLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  safe:             { flex: 1, backgroundColor: '#F9FAFB' },
+  header:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  backBtn:          { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  backIcon:         { fontSize: 28, color: TEAL, lineHeight: 32 },
+  headerTitle:      { fontSize: 17, fontWeight: '600', color: '#111827' },
+  scroll:           { padding: 16, gap: 12 },
+  card:             { backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 4 },
+  cardTitle:        { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 4 },
+  cardSub:          { fontSize: 12, color: '#6B7280', marginBottom: 12 },
+  fieldWrapper:     { marginBottom: 14 },
+  fieldLabel:       { fontSize: 13, fontWeight: '500', color: '#374151', marginBottom: 6 },
+  input:            { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#111827', backgroundColor: '#fff' },
+  inputMultiline:   { height: 100, paddingTop: 10 },
+  inputError:       { borderColor: RED },
+  errorText:        { fontSize: 12, color: RED, marginTop: 4 },
+  row:              { flexDirection: 'row' },
+  chipScroll:       { flexDirection: 'row' },
+  chip:             { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8, backgroundColor: '#F9FAFB' },
+  chipActive:       { backgroundColor: TEAL_BG, borderColor: TEAL },
+  chipText:         { fontSize: 13, color: '#6B7280' },
+  chipTextActive:   { color: TEAL, fontWeight: '600' },
+  imageGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginVertical: 12 },
+  imageSlot:        { width: 80, height: 80, borderRadius: 10, overflow: 'hidden', position: 'relative' },
+  imageThumbnail:   { width: '100%', height: '100%', resizeMode: 'cover' },
+  imageOverlay:     { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  imageBadge:       { position: 'absolute', bottom: 4, left: 4, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  imageBadgeText:   { fontSize: 10, color: '#fff', fontWeight: '700' },
+  imageDelete:      { position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  imageDeleteText:  { color: '#fff', fontSize: 14, lineHeight: 18, fontWeight: '700' },
+  addSlotWrapper:   { flexDirection: 'row', gap: 8 },
+  addSlotGalerie:   { width: 80, height: 80, borderRadius: 10, borderWidth: 1.5, borderColor: TEAL, borderStyle: 'dashed', backgroundColor: TEAL_BG, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  addSlotCamera:    { width: 80, height: 80, borderRadius: 10, borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed', backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  addSlotIcon:      { fontSize: 22 },
+  addSlotLabel:     { fontSize: 10, color: '#6B7280' },
+  imageHint:        { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  submitBtn:        { backgroundColor: TEAL, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  submitBtnDisabled:{ opacity: 0.7 },
+  submitText:       { color: '#fff', fontSize: 16, fontWeight: '600' },
+  submitLoading:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });

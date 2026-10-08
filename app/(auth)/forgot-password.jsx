@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ImageBackground,
@@ -12,17 +12,24 @@ import {
 } from 'react-native';
 
 import { API_URL } from '../../config';
+import { loadDarkMode } from '../../utils/darkMode';
+import { DARK, LIGHT } from '../../utils/theme';
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [darkMode, setDarkMode] = useState(false);
+
+  const T = darkMode ? DARK : LIGHT;
+
+  useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
   const handleSend = async () => {
     if (!email.trim()) { setError('Veuillez entrer votre adresse email.'); return; }
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
@@ -44,20 +51,19 @@ export default function ForgotPassword() {
     <ImageBackground source={require('../../assets/images/stone.jpg')} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.card}>
-          {/* Logo */}
+        <View style={[styles.card, { backgroundColor: T.card }]}>
           <View style={styles.logoRow}>
-            <Text style={styles.logoEzy}>Ezy</Text>
+            <Text style={[styles.logoEzy, { color: T.text }]}>Ezy</Text>
             <View style={styles.logoOOm}>
               <View style={styles.circle} />
               <View style={[styles.circle, styles.circleOverlap]} />
             </View>
-            <Text style={styles.logoM}>m</Text>
+            <Text style={[styles.logoM, { color: T.text }]}>m</Text>
           </View>
-          <Text style={styles.tagline}>Stock & Delivery</Text>
+          <Text style={[styles.tagline, { color: T.sub }]}>Stock & Delivery</Text>
 
           <Text style={styles.title}>Réinitialiser le mot de passe</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: T.sub }]}>
             Entrez votre email pour recevoir un{'\n'}lien de réinitialisation
           </Text>
 
@@ -68,12 +74,12 @@ export default function ForgotPassword() {
             </View>
           )}
 
-          <Text style={styles.label}>Adresse Email</Text>
-          <View style={styles.inputWrapper}>
+          <Text style={[styles.label, { color: T.text }]}>Adresse Email</Text>
+          <View style={[styles.inputWrapper, { backgroundColor: T.searchBg, borderColor: T.border }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: T.text }]}
               placeholder="votre@email.com"
-              placeholderTextColor="#B0BCC8"
+              placeholderTextColor={T.sub}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -92,8 +98,8 @@ export default function ForgotPassword() {
             </LinearGradient>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
-          <Text style={styles.rememberText}>Vous vous souvenez de votre mot de passe ?</Text>
+          <View style={[styles.divider, { backgroundColor: T.border }]} />
+          <Text style={[styles.rememberText, { color: T.sub }]}>Vous vous souvenez de votre mot de passe ?</Text>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.loginLink}>Se connecter</Text>
           </TouchableOpacity>

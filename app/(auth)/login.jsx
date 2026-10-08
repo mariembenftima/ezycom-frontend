@@ -21,8 +21,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { API_URL } from '../../config';
 import { loadSession, saveSession } from '../../utils/auth';
+import { loadDarkMode } from '../../utils/darkMode';
+import { registerFcmToken } from '../../utils/notifications';
+import { DARK, LIGHT } from '../../utils/theme';
 const { height } = Dimensions.get('window');
 const stoneTexture = require('../../assets/images/stone.jpg');
+
+const ALLOW_SIGNUP = false; // Toggle pour réactiver l'inscription publique plus tard
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -32,6 +37,9 @@ export default function LoginScreen() {
   const [showPass, setShowPass] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  const T = darkMode ? DARK : LIGHT;
 
   const router = useRouter();
 
@@ -53,29 +61,57 @@ export default function LoginScreen() {
       setBioAvailable(hasHardware && enrolled);
       setBioEnabled(enabled === 'true');
     })();
+    loadDarkMode().then(setDarkMode);
   }, []);
 
   const handleLogin = async () => {
+    const emailTrim = email.trim();
+    const passTrim = password.trim();
+
+    if (!emailTrim || !passTrim) {
+      setError('Veuillez remplir tous les champs.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrim)) {
+      setError('Adresse email invalide.');
+      return;
+    }
+
+    if (passTrim.length < 4) {
+      setError('Le mot de passe doit contenir au moins 4 caractères.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      console.log('CALLING:', `${API_URL}/api/auth/login.php`);
-      const res = await fetch(`${API_URL}/api/auth/login.php`, {
+      let res = await fetch(`${API_URL}/api/auth/login.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      console.log('STATUS:', res.status);
-      const text = await res.text();
-      console.log('RESPONSE:', text);
-      const data = JSON.parse(text);
+      let text = await res.text();
+      let data = text ? JSON.parse(text) : null;
 
-      if (data.success) {
+      if (!data?.success) {
+        res = await fetch(`${API_URL}/api/auth/login-equipe.php`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        text = await res.text();
+        data = text ? JSON.parse(text) : null;
+      }
+
+      if (data?.success) {
         await saveSession({
           token: data.data.token,
           user: data.data.user,
           shop: data.data.shop,
         });
+        registerFcmToken();
         router.push({
           pathname: '/(auth)/welcome',
           params: {
@@ -85,10 +121,9 @@ export default function LoginScreen() {
           },
         });
       } else {
-        setError(data.message);
+        setError(data?.message || 'Identifiants invalides.');
       }
     } catch (e) {
-      console.log('LOGIN ERROR:', e);
       setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);
@@ -138,24 +173,24 @@ export default function LoginScreen() {
           <View style={styles.blockShadow} />
         </ImageBackground>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: T.card }]}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
             <View style={styles.logoRow}>
-              <Text style={styles.logoEzy}>Ezy</Text>
+              <Text style={[styles.logoEzy, { color: T.text }]}>Ezy</Text>
               <Text style={styles.logoCom}>com</Text>
             </View>
-            <Text style={styles.logoSub}>Stock & Delivery</Text>
+            <Text style={[styles.logoSub, { color: T.sub }]}>Stock & Delivery</Text>
 
             <Text style={styles.heading}>Se connecter</Text>
-            <Text style={styles.subheading}>Connectez vous et boostez votre business</Text>
+            <Text style={[styles.subheading, { color: T.sub }]}>Connectez vous et boostez votre business</Text>
 
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrapper}>
+            <Text style={[styles.label, { color: T.text }]}>Email</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: T.searchBg, borderColor: T.border }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: T.text }]}
                 placeholder="Votre identifiant"
-                placeholderTextColor="#BDC3C7"
+                placeholderTextColor={T.sub}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -167,12 +202,12 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <Text style={styles.label}>Mot de passe</Text>
-            <View style={[styles.inputWrapper, styles.inputWrapperActive]}>
+            <Text style={[styles.label, { color: T.text }]}>Mot de passe</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: T.searchBg, borderColor: T.border }, styles.inputWrapperActive]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: T.text }]}
                 placeholder="Mot de passe"
-                placeholderTextColor="#BDC3C7"
+                placeholderTextColor={T.sub}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPass}
@@ -189,7 +224,7 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity style={styles.forgotRow} onPress={() => router.push('/(auth)/forgot-password')}>
-              <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+              <Text style={[styles.forgotText, { color: T.sub }]}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
             {error ? (
@@ -220,18 +255,22 @@ export default function LoginScreen() {
               </TouchableOpacity>
             )}
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>ou</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {ALLOW_SIGNUP && (
+              <>
+                <View style={styles.divider}>
+                  <View style={[styles.dividerLine, { backgroundColor: T.border }]} />
+                  <Text style={[styles.dividerText, { color: T.sub }]}>ou</Text>
+                  <View style={[styles.dividerLine, { backgroundColor: T.border }]} />
+                </View>
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-              <Text style={styles.signupText}>
-                Vous êtes nouveau et vous n'avez pas de compte ?{' '}
-                <Text style={styles.signupLink}>Créer un compte</Text>
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+                  <Text style={[styles.signupText, { color: T.sub }]}>
+                    Vous êtes nouveau et vous n'avez pas de compte ?{' '}
+                    <Text style={styles.signupLink}>Créer un compte</Text>
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
 
           </ScrollView>
         </View>

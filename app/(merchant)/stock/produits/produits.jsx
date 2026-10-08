@@ -1,11 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import * as Sharing from 'expo-sharing';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -18,12 +22,12 @@ import {
   View,
 } from 'react-native';
 import { API_URL } from '../../../../config';
+import api from '../../../../utils/api';
 import { loadSession } from '../../../../utils/auth';
 import { loadDarkMode, saveDarkMode } from '../../../../utils/darkMode';
+import { DARK_BG, TEAL } from '../../../../utils/theme';
 import AppFooter from '../../../components/AppFooter';
 import AppHeader from '../../../components/AppHeader';
-const TEAL = '#29B6D8';
-const DARK_BG = '#0F1B2D';
 const LIMIT_OPTIONS = [4, 8, 10, 20, 50];
 
 export default function ProduitsScreen() {
@@ -42,6 +46,15 @@ export default function ProduitsScreen() {
   const [limit, setLimit] = useState(4);
 
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const [idCat, setIdCat] = useState(0);
   const [idSous, setIdSous] = useState(0);
 
@@ -55,38 +68,40 @@ export default function ProduitsScreen() {
   const txt = darkMode ? '#FFFFFF' : '#0D1B2A';
   const sub = darkMode ? '#8899AA' : '#6A7A8A';
 
+  const lastFetchRef = useRef(0);
+  const MIN_REFRESH_INTERVAL_MS = 3000;
+
   useFocusEffect(
     useCallback(() => {
       loadSession().then(s => {
         setSession(s);
         if (s) {
-          fetchCategories(s.token);
-          fetchProduits(s.token, 1);
+          const now = Date.now();
+          if (now - lastFetchRef.current < MIN_REFRESH_INTERVAL_MS) return;
+          lastFetchRef.current = now;
+          fetchCategories();
+          fetchProduits(1);
         }
       });
     }, [])
   );
 
-  const authHeaders = token => ({ 'X-Token': token, 'Content-Type': 'application/json' });
 
-  const fetchCategories = async (token) => {
+  const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/categories/categories-list.php`, { headers: authHeaders(token) });
-      const json = await res.json();
+      const json = await api.get('/api/categories/categories-list.php');
       if (json.success) setCategories(json.data?.categories ?? json.data ?? []);
     } catch (_) { }
   };
 
-  const fetchProduits = async (token, p = 1, q = search, cat = idCat, sous = idSous, lim = limit) => {
+  const fetchProduits = async (p = 1, q = search, cat = idCat, sous = idSous, lim = limit) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: p, limit: lim });
       if (q) params.append('search', q);
       if (cat) params.append('id_cat', cat);
       if (sous) params.append('id_sous_cat', sous);
-
-      const res = await fetch(`${API_URL}/api/products/produits/products-list.php?${params}`, { headers: authHeaders(token) });
-      const json = await res.json();
+      const json = await api.get(`/api/products/produits/products-list.php?${params}`);
       if (json.success) {
         setProduits(json.data?.produits ?? []);
         setTotal(json.data?.total ?? 0);
@@ -95,12 +110,13 @@ export default function ProduitsScreen() {
       }
     } catch (_) {
       Alert.alert('Erreur', 'Impossible de charger les produits.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
+
   const [exporting, setExporting] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvImporting, setCsvImporting] = useState(false);
 
   const deleteProduit = (id) => {
     Alert.alert('Supprimer', 'Confirmer la suppression de ce produit ?', [
@@ -109,10 +125,8 @@ export default function ProduitsScreen() {
         text: 'Supprimer', style: 'destructive',
         onPress: async () => {
           try {
-            await fetch(`${API_URL}/api/products/produits/products-delete.php?id=${id}`, {
-              method: 'DELETE', headers: authHeaders(session.token),
-            });
-            fetchProduits(session.token, page);
+            await api.delete(`/api/products/produits/products-delete.php?id=${id}`);
+            fetchProduits(page);
           } catch (_) {
             Alert.alert('Erreur', 'Suppression échouée.');
           }
@@ -126,16 +140,81 @@ export default function ProduitsScreen() {
     setShowDetails(true);
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const session = await loadSession();
+      const token = await session?.token || await AsyncStorage.getItem('ezycom_token');
+      const fileUri = FileSystem.documentDirectory + 'modele-produits.csv';
+      const result = await FileSystem.downloadAsync(
+        `${API_URL}/api/products/csv-template.php`,
+        fileUri,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (result.status !== 200) throw new Error('Échec du téléchargement');
+      await Sharing.shareAsync(result.uri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Modèle CSV produits',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (e) {
+      Alert.alert('Erreur', 'Impossible de télécharger le modèle : ' + e.message);
+    }
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/comma-separated-values', 'application/csv', '*/*'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (res.canceled) return;
+      const asset = res.assets?.[0];
+      if (!asset) return;
+      setCsvFile({ name: asset.name, uri: asset.uri });
+    } catch (e) {
+      Alert.alert('Erreur', 'Impossible de sélectionner le fichier : ' + e.message);
+    }
+  };
+
+  const handleImportCSV = async () => {
+    if (!csvFile) {
+      Alert.alert('Aucun fichier', 'Veuillez d\'abord choisir un fichier CSV.');
+      return;
+    }
+    setCsvImporting(true);
+    try {
+      const content = await FileSystem.readAsStringAsync(csvFile.uri, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      const data = await api.post('/api/products/import-csv.php', { csv: content });
+      if (data.success) {
+        const inserted = data.data?.inserted ?? 0;
+        const errCount = data.data?.error_count ?? 0;
+        Alert.alert(
+          'Import terminé',
+          `${inserted} produit(s) créé(s).` + (errCount > 0 ? `\n${errCount} erreur(s) ignorée(s).` : ''),
+          [{ text: 'OK', onPress: () => { setCsvFile(null); fetchProduits(1); } }]
+        );
+      } else {
+        Alert.alert('Erreur', data.message || 'Échec de l\'import.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur', e.message || 'Import impossible.');
+    } finally {
+      setCsvImporting(false);
+    }
+  };
+
 
   const fetchAllProduits = async () => {
     const params = new URLSearchParams({ page: 1, limit: 9999 });
     if (search) params.append('search', search);
     if (idCat) params.append('id_cat', idCat);
     if (idSous) params.append('id_sous_cat', idSous);
-    const res = await fetch(`${API_URL}/api/products/produits/products-list.php?${params}`, { headers: authHeaders(session.token) });
-    const json = await res.json();
+    const json = await api.get(`/api/products/produits/products-list.php?${params}`);
     return json.data?.produits ?? [];
-  };
+};
 
   const COLONNES = [
     { key: 'ref', label: 'Référence' },
@@ -164,7 +243,6 @@ export default function ProduitsScreen() {
 
   const saveWithSAF = async (content, fileName, mimeType, encoding = FileSystem.EncodingType.UTF8) => {
     try {
-      // Demande à l'utilisateur de choisir un dossier (ex: Téléchargements)
       const permissions = await SAF.requestDirectoryPermissionsAsync();
       if (!permissions.granted) {
         Alert.alert('Annulé', 'Aucun dossier sélectionné.');
@@ -388,8 +466,25 @@ export default function ProduitsScreen() {
       : { bg: '#FDEDEC', text: '#E74C3C', border: '#F1948A' };
 
   const Pagination = () => {
+    if (totalPages <= 1) return null;
+
     const pages = [];
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
+    const range = 1;
+    const shown = new Set();
+    shown.add(1);
+    shown.add(totalPages);
+    for (let i = page - range; i <= page + range; i++) {
+      if (i >= 1 && i <= totalPages) shown.add(i);
+    }
+    const sortedPages = Array.from(shown).sort((a, b) => a - b);
+
+    let last = 0;
+    for (const p of sortedPages) {
+      if (p - last > 1) pages.push('...');
+      pages.push(p);
+      last = p;
+    }
+
     return (
       <View style={styles.paginationRow}>
         <Text style={[styles.paginationInfo, { color: sub }]}>
@@ -397,22 +492,29 @@ export default function ProduitsScreen() {
         </Text>
         <View style={styles.paginationBtns}>
           {page > 1 && (
-            <TouchableOpacity style={styles.pageBtn} onPress={() => fetchProduits(session.token, page - 1)}>
-              <Text style={{ color: txt, fontWeight: '600' }}>‹</Text>
+            <TouchableOpacity style={styles.pageBtn} onPress={() => fetchProduits( page - 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.pageBtnTxt, { color: txt }]}>‹</Text>
             </TouchableOpacity>
           )}
-          {pages.map(p => (
-            <TouchableOpacity
-              key={p}
-              style={[styles.pageBtn, p === page && { backgroundColor: TEAL }]}
-              onPress={() => fetchProduits(session.token, p)}
-            >
-              <Text style={{ color: p === page ? '#fff' : txt, fontWeight: '600' }}>{p}</Text>
-            </TouchableOpacity>
+          {pages.map((p, i) => (
+            p === '...' ? (
+              <View key={`ellipsis-${i}`} style={styles.pageEllipsis}>
+                <Text style={[styles.pageBtnTxt, { color: sub }]}>...</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                key={p}
+                style={[styles.pageBtn, p === page && { backgroundColor: TEAL }]}
+                onPress={() => fetchProduits( p)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.pageBtnTxt, { color: p === page ? '#fff' : txt }]}>{p}</Text>
+              </TouchableOpacity>
+            )
           ))}
           {page < totalPages && (
-            <TouchableOpacity style={styles.pageBtn} onPress={() => fetchProduits(session.token, page + 1)}>
-              <Text style={{ color: txt, fontWeight: '600' }}>›</Text>
+            <TouchableOpacity style={styles.pageBtn} onPress={() => fetchProduits( page + 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.pageBtnTxt, { color: txt }]}>›</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -537,7 +639,7 @@ export default function ProduitsScreen() {
                 onPress={() => {
                   setLimit(opt);
                   setShowLimitPicker(false);
-                  fetchProduits(session?.token, 1, search, idCat, idSous, opt);
+                  fetchProduits( 1, search, idCat, idSous, opt);
                 }}
               >
                 <Text style={{ color: opt === limit ? TEAL : txt, fontWeight: opt === limit ? '700' : '400', fontSize: 14 }}>
@@ -557,7 +659,7 @@ export default function ProduitsScreen() {
             <Text style={[styles.limitModalTitle, { color: sub }]}>Filtrer par catégorie</Text>
             <TouchableOpacity
               style={[styles.limitOption, idCat === 0 && { backgroundColor: '#E8F7FB' }]}
-              onPress={() => { setIdCat(0); setIdSous(0); setShowCatPicker(false); fetchProduits(session?.token, 1, search, 0, 0); }}
+              onPress={() => { setIdCat(0); setIdSous(0); setShowCatPicker(false); fetchProduits( 1, search, 0, 0); }}
             >
               <Text style={{ color: idCat === 0 ? TEAL : txt, fontWeight: idCat === 0 ? '700' : '400', fontSize: 14 }}>
                 Toutes les catégories
@@ -569,7 +671,7 @@ export default function ProduitsScreen() {
                 <TouchableOpacity
                   key={c.id}
                   style={[styles.limitOption, idCat == c.id && { backgroundColor: '#E8F7FB' }]}
-                  onPress={() => { setIdCat(c.id); setIdSous(0); setShowCatPicker(false); fetchProduits(session?.token, 1, search, c.id, 0); }}
+                  onPress={() => { setIdCat(c.id); setIdSous(0); setShowCatPicker(false); fetchProduits( 1, search, c.id, 0); }}
                 >
                   <Text style={{ color: idCat == c.id ? TEAL : txt, fontWeight: idCat == c.id ? '700' : '400', fontSize: 14 }}>
                     {c.nom}
@@ -593,19 +695,33 @@ export default function ProduitsScreen() {
         <View style={[styles.card, { backgroundColor: card }]}>
           <Text style={[styles.sectionLabel, { color: sub }]}>Charger votre fichier</Text>
           <View style={styles.importRow}>
-            <TouchableOpacity style={[styles.csvBtn, { borderColor: TEAL }]}>
+            <TouchableOpacity
+              style={[styles.csvBtn, { borderColor: TEAL }]}
+              onPress={handleDownloadTemplate}
+            >
               <Ionicons name="download-outline" size={14} color={TEAL} />
               <Text style={[styles.csvBtnTxt, { color: TEAL }]}> Modèle CSV</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.fileRow}>
-            <View style={[styles.fileInput, { borderColor: '#CBD5E0' }]}>
-              <Text style={[styles.fileInputTxt, { color: sub }]}>Choisir un fichier</Text>
-              <Text style={[styles.fileInputSub, { color: sub }]}>  Aucun fichier</Text>
-            </View>
-            <TouchableOpacity style={[styles.importBtn, { backgroundColor: TEAL }]}>
+            <TouchableOpacity
+              style={[styles.fileInput, { borderColor: '#CBD5E0' }]}
+              onPress={handlePickFile}
+            >
+              <Text style={[styles.fileInputTxt, { color: sub }]}>
+                {csvFile ? csvFile.name : 'Choisir un fichier'}
+              </Text>
+              <Text style={[styles.fileInputSub, { color: sub }]}>
+                {csvFile ? '  ✓ Prêt à importer' : '  Aucun fichier'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.importBtn, { backgroundColor: TEAL, opacity: csvImporting ? 0.6 : 1 }]}
+              onPress={handleImportCSV}
+              disabled={csvImporting}
+            >
               <Ionicons name="arrow-up-outline" size={14} color="#fff" />
-              <Text style={styles.importBtnTxt}> Importer</Text>
+              <Text style={styles.importBtnTxt}> {csvImporting ? 'Import...' : 'Importer'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -639,9 +755,9 @@ export default function ProduitsScreen() {
               style={[styles.searchInput, { borderColor: '#CBD5E0', color: txt, backgroundColor: card }]}
               placeholder="Rechercher..."
               placeholderTextColor={sub}
-              value={search}
-              onChangeText={setSearch}
-              onSubmitEditing={() => fetchProduits(session?.token, 1)}
+              value={searchInput}
+              onChangeText={setSearchInput}
+              onSubmitEditing={() => fetchProduits( 1, searchInput)}
               returnKeyType="search"
             />
           </View>
@@ -663,7 +779,7 @@ export default function ProduitsScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
               <TouchableOpacity
                 style={[styles.subChip, { backgroundColor: idSous === 0 ? TEAL : '#F0F4F8', marginRight: 6 }]}
-                onPress={() => { setIdSous(0); fetchProduits(session?.token, 1, search, idCat, 0); }}
+                onPress={() => { setIdSous(0); fetchProduits( 1, search, idCat, 0); }}
               >
                 <Text style={{ color: idSous === 0 ? '#fff' : sub, fontSize: 12 }}>Toutes</Text>
               </TouchableOpacity>
@@ -671,7 +787,7 @@ export default function ProduitsScreen() {
                 <TouchableOpacity
                   key={sc.id}
                   style={[styles.subChip, { backgroundColor: idSous == sc.id ? '#0D7A95' : '#E8F7FB', marginRight: 6 }]}
-                  onPress={() => { setIdSous(sc.id); fetchProduits(session?.token, 1, search, idCat, sc.id); }}
+                  onPress={() => { setIdSous(sc.id); fetchProduits( 1, search, idCat, sc.id); }}
                 >
                   <Text style={{ color: idSous == sc.id ? '#fff' : TEAL, fontSize: 12 }}>{sc.nom}</Text>
                 </TouchableOpacity>
@@ -679,60 +795,57 @@ export default function ProduitsScreen() {
             </ScrollView>
           )}
 
-          {/* ── EN-TÊTE TABLEAU 4 COLONNES ── */}
-          <View style={[styles.colHeader, { borderBottomColor: '#E2E8F0' }]}>
-            <Text style={[styles.colTxt, { color: sub, flex: 3 }]}>Produit</Text>
-            <Text style={[styles.colTxt, { color: sub, flex: 1, textAlign: 'center' }]}>Détails</Text>
-            <Text style={[styles.colTxt, { color: sub, flex: 1.4, textAlign: 'center' }]}>Statut</Text>
-            <Text style={[styles.colTxt, { color: sub, flex: 0.8, textAlign: 'center' }]}>Suppr.</Text>
-          </View>
-
-          {/* ── LIGNES TABLEAU ── */}
+          {/* ── CARTES PRODUITS ── */}
           {loading ? (
             <ActivityIndicator color={TEAL} style={{ marginVertical: 30 }} />
           ) : produits.length === 0 ? (
             <Text style={[styles.emptyTxt, { color: sub }]}>Aucun produit trouvé.</Text>
           ) : (
-            produits.map(p => {
+            produits.map((p, i) => {
               const stat = getStatutColor(p.etat, p.qte);
+              const imgUrl = p.img1 ? `${API_URL}${p.img1}` : null;
               return (
-                <View key={p.id} style={[styles.prodRow, { borderBottomColor: '#E2E8F0' }]}>
-
-                  {/* Colonne 1 : Nom + Ref */}
-                  <View style={{ flex: 3 }}>
-                    <Text style={[styles.prodNom, { color: TEAL }]} numberOfLines={1}>{p.nom}</Text>
-                    {p.ref ? <Text style={[styles.prodRef, { color: sub }]}>REF: {p.ref}</Text> : null}
+                <View key={p.id} style={[styles.prodCard, { borderBottomColor: '#E2E8F0' }, i < produits.length - 1 && { borderBottomWidth: 1 }]}>
+                  <View style={styles.prodCardLeft}>
+                    {imgUrl ? (
+                      <Image source={{ uri: imgUrl }} style={styles.prodImg} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.prodImgPlaceholder, { backgroundColor: '#E8F8FC' }]}>
+                        <Ionicons name="image-outline" size={22} color="#29B6D8" />
+                      </View>
+                    )}
                   </View>
-
-                  {/* Colonne 2 : Détails */}
-                  <TouchableOpacity
-                    style={{ flex: 1, alignItems: 'center' }}
-                    onPress={() => openDetails(p)}
-                  >
-                    <View style={styles.detailBtn}>
-                      <Ionicons name="information-circle-outline" size={20} color={TEAL} />
+                  <View style={styles.prodCardBody}>
+                    <View style={styles.prodCardTop}>
+                      <Text style={[styles.prodNom, { color: txt, flex: 1 }]} numberOfLines={1}>{p.nom}</Text>
+                      <View style={[styles.statutBadge, { backgroundColor: stat.bg, borderColor: stat.border }]}>
+                        <Text style={[styles.statutTxt, { color: stat.text }]}>
+                          {p.etat == 1 && parseInt(p.qte) > 0 ? 'Actif' : 'Inactif'}
+                        </Text>
+                      </View>
                     </View>
-                  </TouchableOpacity>
-
-                  {/* Colonne 3 : Statut */}
-                  <View style={{ flex: 1.4, alignItems: 'center' }}>
-                    <View style={[styles.statutBadge, { backgroundColor: stat.bg, borderColor: stat.border }]}>
-                      <Text style={[styles.statutTxt, { color: stat.text }]}>
-                        {p.etat == 1 && parseInt(p.qte) > 0 ? '✓ Actif' : '✗ Inactif'}
+                    {p.ref ? <Text style={[styles.prodRef, { color: sub }]}>Réf: {p.ref}</Text> : null}
+                    <View style={styles.prodMeta}>
+                      <Text style={[styles.prodPrice, { color: TEAL }]}>{parseFloat(p.prix || 0).toFixed(3)} TND</Text>
+                      <Text style={[styles.prodQte, { color: parseInt(p.qte) <= parseInt(p.seuil) ? '#E74C3C' : sub }]}>
+                        Stock: {p.qte}
                       </Text>
                     </View>
-                  </View>
-
-                  {/* Colonne 4 : Supprimer */}
-                  <TouchableOpacity
-                    style={{ flex: 0.8, alignItems: 'center' }}
-                    onPress={() => deleteProduit(p.id)}
-                  >
-                    <View style={styles.deleteBtn}>
-                      <Ionicons name="trash-outline" size={16} color="#E74C3C" />
+                    <View style={styles.prodCardActions}>
+                      <TouchableOpacity style={styles.cardActionBtn} onPress={() => openDetails(p)}>
+                        <Ionicons name="information-circle-outline" size={14} color="#64748b" />
+                        <Text style={styles.cardActionTxt} numberOfLines={1}>Détails</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.cardActionBtn} onPress={() => router.push(`/(merchant)/stock/produits/modifier-produit?id=${p.id}`)}>
+                        <Ionicons name="pencil-outline" size={14} color="#64748b" />
+                        <Text style={styles.cardActionTxt} numberOfLines={1}>Modifier</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.cardActionBtn, styles.cardActionBtnRed]} onPress={() => deleteProduit(p.id)}>
+                        <Ionicons name="trash-outline" size={14} color="#E74C3C" />
+                        <Text style={[styles.cardActionTxt, { color: '#E74C3C' }]} numberOfLines={1}>Supprimer</Text>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-
+                  </View>
                 </View>
               );
             })
@@ -794,20 +907,30 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13 },
   catDropdown: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
   subChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  colHeader: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, marginBottom: 4 },
-  colTxt: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   emptyTxt: { textAlign: 'center', marginVertical: 30, fontSize: 14 },
-  prodRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
-  prodNom: { fontSize: 13, fontWeight: '700' },
-  prodRef: { fontSize: 11, marginTop: 2 },
-  statutBadge: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 3 },
+  prodCard: { flexDirection: 'row', paddingVertical: 14, gap: 12 },
+  prodCardLeft: { justifyContent: 'flex-start' },
+  prodImg: { width: 70, height: 70, borderRadius: 10 },
+  prodImgPlaceholder: { width: 70, height: 70, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  prodCardBody: { flex: 1 },
+  prodCardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  prodNom: { fontSize: 14, fontWeight: '700' },
+  prodRef: { fontSize: 11, marginBottom: 4 },
+  prodMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  prodPrice: { fontSize: 14, fontWeight: '800' },
+  prodQte: { fontSize: 12, fontWeight: '600' },
+  statutBadge: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   statutTxt: { fontSize: 11, fontWeight: '600' },
-  detailBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F7FB', alignItems: 'center', justifyContent: 'center' },
-  deleteBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#FDEDEC', alignItems: 'center', justifyContent: 'center' },
+  prodCardActions: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  cardActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 4, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', minWidth: 0 },
+  cardActionBtnRed: { borderColor: '#fee2e2', backgroundColor: '#fff5f5' },
+  cardActionTxt: { fontSize: 10, fontWeight: '600', color: '#64748b', flexShrink: 1 },
   paginationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
   paginationInfo: { fontSize: 12 },
   paginationBtns: { flexDirection: 'row', gap: 6 },
   pageBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' },
+  pageBtnTxt: { fontSize: 13, fontWeight: '600' },
+  pageEllipsis: { minWidth: 20, height: 32, alignItems: 'center', justifyContent: 'center' },
   exportRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
   exportBtn: { borderRadius: 22, paddingHorizontal: 18, paddingVertical: 10 },
   exportTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },

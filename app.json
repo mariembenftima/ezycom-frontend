@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ezycom.mobile"
     },
     "updates": {
       "enabled": false
@@ -26,7 +27,8 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.EzycomMerchant"
+      "package": "com.ezycom.mobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -34,6 +36,8 @@
     },
     "plugins": [
       "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       [
         "expo-build-properties",
         {
@@ -60,6 +64,9 @@
           "photosPermission": "Ezycom a besoin d'accéder à vos photos.",
           "cameraPermission": "Ezycom a besoin d'accéder à votre caméra."
         }
+      ],
+      [
+        "expo-notifications"
       ],
       "expo-font",
       "expo-web-browser"

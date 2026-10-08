@@ -32,5 +32,5 @@ export const clearSession = async () => {
 
 export const authHeaders = (token) => ({
   'Content-Type': 'application/json',
-  'X-Token': token,
+  'Authorization': `Bearer ${token}`,
 });

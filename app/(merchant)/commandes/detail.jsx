@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -13,36 +13,33 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API_URL } from '../../../config';
+import api from '../../../utils/api';
 import { loadSession } from '../../../utils/auth';
 import { loadDarkMode, saveDarkMode } from '../../../utils/darkMode';
+import { DARK, LIGHT, TEAL } from '../../../utils/theme';
+import { ORDER_STATUS } from '../../../utils/orderStatus';
 import AppFooter from '../../components/AppFooter';
 import AppHeader from '../../components/AppHeader';
 
-const TEAL = '#29B6D8';
-
-const LIGHT = { bg: '#F9FAFB', card: '#fff', border: '#E5E7EB', text: '#111827', sub: '#6B7280', searchBg: '#F3F4F6' };
-const DARK  = { bg: '#0A1525', card: '#0F2035', border: '#1E3A50', text: '#E2EEF8', sub: '#5A8A9A', searchBg: '#152D42' };
-
 const STATUTS = [
-    { etat: null, label: 'Tous',       color: '#6B7280', bg: '#F3F4F6' },
-    { etat: 0,    label: 'En attente', color: '#D97706', bg: '#FEF3C7' },
-    { etat: 1,    label: 'Confirmée',  color: '#2563EB', bg: '#DBEAFE' },
-    { etat: 2,    label: 'Dispatché',  color: '#7C3AED', bg: '#EDE9FE' },
-    { etat: 5,    label: 'Livrée',     color: '#059669', bg: '#D1FAE5' },
-    { etat: 7,    label: 'Annulée',    color: '#DC2626', bg: '#FEE2E2' },
+    { etat: null, label: 'Tous', color: '#6B7280', bg: '#F3F4F6' },
+    ...Object.entries(ORDER_STATUS).map(([etat, s]) => ({ etat: parseInt(etat), ...s })),
 ];
 
 const getStatut = (etat) => STATUTS.find(s => s.etat === parseInt(etat)) || STATUTS[0];
 
-const CommandeCard = ({ item, T }) => {
+const CommandeCard = memo(({ item, T }) => {
     const statut = getStatut(item.etat);
     const date   = item.date_add ? new Date(item.date_add).toLocaleDateString('fr-FR') : '';
     const client = [item.nom, item.prenom].filter(Boolean).join(' ') || 'Client inconnu';
     const total  = item.prix ? `${parseFloat(item.prix).toFixed(3)} TND` : '—';
 
     return (
-        <View style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}>
+        <TouchableOpacity
+            style={[styles.card, { backgroundColor: T.card, borderColor: T.border }]}
+            onPress={() => router.push(`/(merchant)/commandes/commande-detail?id=${item.id}`)}
+            activeOpacity={0.8}
+        >
             <View style={styles.cardTop}>
                 <View style={{ flex: 1 }}>
                     <Text style={[styles.cardRef, { color: T.sub }]}>#{item.code_barre || item.id}</Text>
@@ -58,16 +55,15 @@ const CommandeCard = ({ item, T }) => {
                 <Text style={styles.cardTotal}>{total}</Text>
                 <Text style={[styles.cardDate, { color: T.sub }]}>{date}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
-};
+});
 
 export default function CommandesScreen() {
     const { etat: etatParam } = useGlobalSearchParams();
 
     const [session,     setSession]     = useState(null);
     const [darkMode,    setDarkMode]    = useState(false);
-    const [token,       setToken]       = useState(null);
     const [commandes,   setCommandes]   = useState([]);
     const [stats,       setStats]       = useState({});
     const [loading,     setLoading]     = useState(true);
@@ -77,6 +73,7 @@ export default function CommandesScreen() {
     const [page,        setPage]        = useState(1);
     const [hasMore,     setHasMore]     = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
+    const isLoadingRef = useRef(false);
 
     const T = darkMode ? DARK : LIGHT;
 
@@ -88,38 +85,52 @@ export default function CommandesScreen() {
                 const s = await loadSession();
                 if (!s?.token) { router.replace('/(auth)/login'); return; }
                 setSession(s);
-                setToken(s.token);
                 const etat = etatParam !== undefined ? parseInt(etatParam) : null;
                 setFiltreEtat(etat);
-                fetchCommandes(s.token, 1, etat, '');
+                fetchCommandes(1, etat, '');
             })();
         }, [etatParam])
     );
 
-    const fetchCommandes = async (tok, p = 1, etat = filtreEtat, q = search, append = false) => {
+    const fetchCommandes = async (p = 1, etat = filtreEtat, q = search, append = false) => {
         if (!append) setLoading(true);
         else setLoadingMore(true);
         try {
-            let url = `${API_URL}/api/orders/orders-list.php?page=${p}&limit=20`;
-            if (etat !== null && etat !== undefined) url += `&etat=${etat}`;
-            if (q) url += `&search=${encodeURIComponent(q)}`;
-            const res  = await fetch(url, { headers: { 'X-Token': tok } });
-            const data = await res.json();
+            let path = `/api/orders/orders-list.php?page=${p}&limit=20`;
+            if (etat !== null && etat !== undefined) path += `&etat=${etat}`;
+            if (q) path += `&search=${encodeURIComponent(q)}`;
+            const data = await api.get(path);
             if (data.success) {
                 const list = Array.isArray(data.data?.commandes) ? data.data.commandes : [];
-                setCommandes(prev => append ? [...prev, ...list] : list);
+                setCommandes(prev => {
+                    if (!append) return list;
+                    const map = new Map(prev.map(c => [c.id, c]));
+                    list.forEach(c => map.set(c.id, c));
+                    return Array.from(map.values());
+                });
                 setStats(data.data?.stats || {});
                 setHasMore(p < (data.data?.pages || 1));
                 setPage(p);
             }
         } catch (_) {}
-        finally { setLoading(false); setLoadingMore(false); setRefreshing(false); }
+        finally {
+            setLoading(false);
+            setLoadingMore(false);
+            setRefreshing(false);
+            isLoadingRef.current = false;
+        }
     };
 
-    const onRefresh      = () => { setRefreshing(true); fetchCommandes(token, 1, filtreEtat, search); };
-    const onFiltreChange = (etat) => { setFiltreEtat(etat); setCommandes([]); fetchCommandes(token, 1, etat, search); };
-    const onSearchChange = (q) => { setSearch(q); if (q.length === 0 || q.length >= 3) fetchCommandes(token, 1, filtreEtat, q); };
-    const loadMore       = () => { if (!hasMore || loadingMore) return; fetchCommandes(token, page + 1, filtreEtat, search, true); };
+    const onRefresh      = () => { setRefreshing(true); fetchCommandes(1, filtreEtat, search); };
+    const onFiltreChange = (etat) => { setFiltreEtat(etat); setCommandes([]); fetchCommandes(1, etat, search); };
+    const onSearchChange = (q) => { setSearch(q); if (q.length === 0 || q.length >= 3) fetchCommandes(1, filtreEtat, q); };
+    const loadMore       = () => {
+        if (!hasMore || loadingMore || isLoadingRef.current) return;
+        isLoadingRef.current = true;
+        fetchCommandes(page + 1, filtreEtat, search, true);
+    };
+
+    const renderItem = useCallback(({ item }) => <CommandeCard item={item} T={T} />, [T]);
 
     return (
         <SafeAreaView style={[styles.safe, { backgroundColor: T.bg }]}>
@@ -170,10 +181,10 @@ export default function CommandesScreen() {
                 {STATUTS.map((s, i) => (
                     <TouchableOpacity
                         key={i}
-                        style={[styles.filtreChip, { borderColor: T.border, backgroundColor: T.bg }, filtreEtat === s.etat && { backgroundColor: s.bg, borderColor: s.color }]}
+                        style={[styles.filtreChip, { borderColor: T.border, backgroundColor: T.card }, filtreEtat === s.etat && { backgroundColor: s.color, borderColor: s.color }]}
                         onPress={() => onFiltreChange(s.etat)}
                     >
-                        <Text style={[styles.filtreText, { color: T.sub }, filtreEtat === s.etat && { color: s.color, fontWeight: '700' }]}>
+                        <Text style={{ fontSize: 12, fontWeight: filtreEtat === s.etat ? '700' : '500', color: filtreEtat === s.etat ? '#fff' : (darkMode ? '#E2EEF8' : '#1A2940') }}>
                             {s.label}
                         </Text>
                     </TouchableOpacity>
@@ -195,9 +206,9 @@ export default function CommandesScreen() {
                     showsVerticalScrollIndicator={false}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TEAL} />}
                     onEndReached={loadMore}
-                    onEndReachedThreshold={0.3}
+                    onEndReachedThreshold={0.5}
                     ListFooterComponent={loadingMore ? <ActivityIndicator color={TEAL} style={{ marginVertical: 12 }} /> : null}
-                    renderItem={({ item }) => <CommandeCard item={item} T={T} />}
+                    renderItem={renderItem}
                 />
             )}
 
@@ -215,9 +226,9 @@ const styles = StyleSheet.create({
     searchRow:   { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
     searchWrap:  { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
     searchInput: { flex: 1, fontSize: 13 },
-    filtresRow:  { paddingVertical: 8, borderBottomWidth: 1, maxHeight: 52 },
-    filtreChip:  { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-    filtreText:  { fontSize: 12 },
+    filtresRow:  { paddingVertical: 8, borderBottomWidth: 1, maxHeight: 60, minHeight: 61 },
+    filtreChip:  { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, height: 36, justifyContent: 'center', alignItems: 'center' },
+    filtreText:  { fontSize: 12, fontWeight: '500', includeFontPadding: false },
     list:        { padding: 12, gap: 10 },
     center:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
     emptyText:   { fontSize: 14 },

@@ -1,30 +1,13 @@
-// components/VariantesSection.jsx
-// Composant réutilisable pour gérer les variantes dans ajouter-produit.jsx
-// et modifier-produit.jsx
-//
-// USAGE dans ajouter-produit.jsx :
-//   import VariantesSection from '../../../../components/VariantesSection';
-//   ...
-//   <VariantesSection token={token} variantes={variantes} onVariantesChange={setVariantes} />
-//
-// Puis dans handleSubmit, après la création du produit :
-//   for (const v of variantes) {
-//     await fetch(`${API_URL}/api/products/${productId}/variation`, {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json', 'X-Token': token },
-//       body: JSON.stringify(v),
-//     });
-//   }
-
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { API_URL } from '../config';
 
@@ -46,13 +29,11 @@ function cleanLabel(valeur) {
   return valeur.replace(/#[0-9A-Fa-f]{6}/, '').trim();
 }
 
-// Chip sélectionnable pour taille ou couleur
 function ValeurChip({ valeur, selected, onPress }) {
   const hex = extractHex(valeur.valeur);
   const label = cleanLabel(valeur.valeur);
 
   if (hex) {
-    // Chip couleur : cercle coloré + nom
     const isWhite = hex.toLowerCase() === '#ffffff';
     return (
       <TouchableOpacity
@@ -75,7 +56,6 @@ function ValeurChip({ valeur, selected, onPress }) {
     );
   }
 
-  // Chip taille : texte simple
   return (
     <TouchableOpacity
       style={[styles.sizeChip, selected && styles.sizeChipActive]}
@@ -93,27 +73,32 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
   const [attributs, setAttributs]       = useState([]);  // [{id, nom, valeurs:[]}]
   const [loadingAttr, setLoadingAttr]   = useState(true);
 
-  // Sélection en cours pour construire une nouvelle variante
   const [selectedValeurs, setSelectedValeurs] = useState({}); // { id_attribut: id_valeur }
   const [prixVariante,    setPrixVariante]    = useState('');
   const [qteVariante,     setQteVariante]     = useState('');
   const [skuVariante,     setSkuVariante]     = useState('');
   const [errVariante,     setErrVariante]     = useState('');
 
-  // Charger les attributs du commerçant
   useEffect(() => {
     if (!token) return;
     (async () => {
       try {
-        const res  = await fetch(`${API_URL}/api/products/attributs`, {
-          headers: { 'X-Token': token },
+        const res  = await fetch(`${API_URL}/api/products/variantes/list-attributs.php`, {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
+
+        if (res.status === 401) {
+          const { clearSession } = await import('../utils/auth');
+          await clearSession();
+          router.replace('/(auth)/login');
+          throw new Error('Session expirée. Veuillez vous reconnecter.');
+        }
+
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           setAttributs(data.data);
         }
       } catch (_) {
-        /* silencieux */
       } finally {
         setLoadingAttr(false);
       }
@@ -122,7 +107,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
 
   const toggleValeur = (idAttribut, idValeur) => {
     setSelectedValeurs(prev => {
-      // Si déjà sélectionné → désélectionner
       if (prev[idAttribut] === idValeur) {
         const copy = { ...prev };
         delete copy[idAttribut];
@@ -133,7 +117,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
     setErrVariante('');
   };
 
-  // Ajouter la variante à la liste locale
   const ajouterVariante = () => {
     if (Object.keys(selectedValeurs).length === 0) {
       setErrVariante('Sélectionnez au moins une valeur (taille ou couleur).');
@@ -161,7 +144,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
 
     onVariantesChange([...variantes, nouvelleVariante]);
 
-    // Reset sélection
     setSelectedValeurs({});
     setPrixVariante('');
     setQteVariante('');
@@ -212,7 +194,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
         Créez des combinaisons taille / couleur avec leur prix et stock propres
       </Text>
 
-      {/* Sélecteurs d'attributs */}
       {attributs.map(attr => (
         <View key={attr.id} style={styles.attrBlock}>
           <Text style={styles.attrLabel}>{attr.nom}</Text>
@@ -229,7 +210,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
         </View>
       ))}
 
-      {/* Prix et quantité de la variante */}
       <View style={styles.row}>
         <View style={{ flex: 1, marginRight: 8 }}>
           <Text style={styles.fieldLabel}>Prix (TND)</Text>
@@ -271,7 +251,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
         <Text style={styles.errorText}>{errVariante}</Text>
       ) : null}
 
-      {/* Bouton ajouter variante */}
       <TouchableOpacity
         style={styles.addBtn}
         onPress={ajouterVariante}
@@ -280,7 +259,6 @@ export default function VariantesSection({ token, variantes = [], onVariantesCha
         <Text style={styles.addBtnText}>+ Ajouter cette variante</Text>
       </TouchableOpacity>
 
-      {/* Liste des variantes ajoutées */}
       {variantes.length > 0 && (
         <View style={styles.variantesList}>
           <Text style={styles.variantesTitle}>
@@ -336,7 +314,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Attributs
   attrBlock: {
     marginBottom: 14,
   },
@@ -352,7 +329,6 @@ const styles = StyleSheet.create({
     gap:            8,
   },
 
-  // Chip taille
   sizeChip: {
     paddingHorizontal: 14,
     paddingVertical:    8,
@@ -374,7 +350,6 @@ const styles = StyleSheet.create({
     color: TEAL,
   },
 
-  // Chip couleur
   colorChip: {
     flexDirection:  'row',
     alignItems:     'center',
@@ -407,7 +382,6 @@ const styles = StyleSheet.create({
     color: TEAL,
   },
 
-  // Champs
   row: {
     flexDirection: 'row',
     marginBottom:  12,
@@ -434,7 +408,6 @@ const styles = StyleSheet.create({
     marginBottom:  8,
   },
 
-  // Bouton ajouter
   addBtn: {
     borderWidth:     1.5,
     borderColor:     TEAL,
@@ -451,7 +424,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Liste variantes
   variantesList: {
     marginTop: 14,
     borderTopWidth: 1,

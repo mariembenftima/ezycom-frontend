@@ -14,14 +14,12 @@ import {
 
 const { width } = Dimensions.get('window');
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
 const TEAL = '#29B6D8';
 const NAVY = '#0d1b2a';
 const NAVY2 = '#112233';
 const CARD_DARK = '#0f1e30';
 const CARD_MID = '#162840';
 
-// ─── Plans data ───────────────────────────────────────────────────────────────
 const PLANS = [
   {
     id: 'gratuit',
@@ -103,7 +101,6 @@ const PLANS = [
   },
 ];
 
-// ─── Comparison table ─────────────────────────────────────────────────────────
 const TABLE_ROWS = [
   { label: "Nombre de produits",        values: ['5', '50', '200', 'Illimité'], section: null },
   { label: "Nombre de commandes",       values: ['40', '400', '1500', 'Illimité'], section: null },
@@ -245,7 +242,6 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={NAVY} />
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>Ezycom</Text>
         <View style={styles.headerRight}>
@@ -263,10 +259,8 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
         <Text style={styles.hero}>Des packs flexibles,{'\n'}pensés pour chaque ambition</Text>
 
-        {/* Plan cards */}
         {PLANS.map((plan, i) => (
           <View
             key={plan.id}
@@ -323,14 +317,12 @@ export default function RegisterScreen() {
           </View>
         ))}
 
-        {/* ── Comparison Table ── */}
         <Text style={styles.sectionTitle}>Comparez nos packs</Text>
         <Text style={styles.sectionSub}>
           Nos packs sont conçus pour vous accompagner à chaque étape.
         </Text>
 
         <View style={styles.table}>
-          {/* Table header */}
           <View style={styles.tableRow}>
             <View style={styles.tableHeaderLabel} />
             {['Gratuit', 'Essor', 'Prosperite', 'Empire'].map((h, i) => (
@@ -594,7 +586,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
-  // Section headings
   sectionTitle: {
     fontSize: 20,
     fontWeight: '800',
@@ -611,7 +602,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Table
   table: {
     backgroundColor: CARD_DARK,
     borderRadius: 14,

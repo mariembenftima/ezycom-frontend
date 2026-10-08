@@ -9,6 +9,7 @@ import {
   Text,
   View
 } from 'react-native';
+import { registerFcmToken } from '../../utils/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +31,10 @@ export default function WelcomeScreen() {
   const plan      = params.plan     || 'gratuit';
   const initials  = getInitials(userName);
   const planColor = PLAN_COLORS[plan] ?? '#29B6D8';
+
+  useEffect(() => {
+    registerFcmToken();
+  }, []);
 
   const logoOpacity   = useRef(new Animated.Value(0)).current;
   const cardTranslate = useRef(new Animated.Value(60)).current;

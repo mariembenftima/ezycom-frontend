@@ -1,12 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
-
-const LIGHT = { bg: '#fff', border: '#E8EEF4' };
-const DARK  = { bg: '#0F2035', border: '#1E3A50' };
+import { DARK, LIGHT } from '../../utils/theme';
 
 export default function AppFooter({ darkMode }) {
   const T = darkMode ? DARK : LIGHT;
   return (
-    <View style={[s.footer, { backgroundColor: T.bg, borderTopColor: T.border }]}>
+    <View style={[s.footer, { backgroundColor: T.header, borderTopColor: T.headerBorder }]}>
       <Text style={s.left}>© 2026 Ezycom</Text>
       <Text style={s.right}>Design with <Text style={s.heart}>♥</Text> by Ezycom</Text>
     </View>

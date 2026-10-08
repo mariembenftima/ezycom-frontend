@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ImageBackground,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 
 import { API_URL } from '../../config';
+import { loadDarkMode } from '../../utils/darkMode';
+import { DARK, LIGHT } from '../../utils/theme';
 
 export default function VerifyCode() {
   const { email } = useLocalSearchParams();
@@ -19,7 +21,12 @@ export default function VerifyCode() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
   const inputs = useRef([]);
+
+  const T = darkMode ? DARK : LIGHT;
+
+  useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
   const handleChange = (val, index) => {
     const newCode = [...code];
@@ -40,7 +47,7 @@ export default function VerifyCode() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/verify-reset-code`, {
+      const res = await fetch(`${API_URL}/api/auth/verify-reset-code.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: fullCode }),
@@ -62,7 +69,7 @@ export default function VerifyCode() {
     setResendLoading(true);
     setError('');
     try {
-      await fetch(`${API_URL}/api/auth/forgot-password`, {
+      await fetch(`${API_URL}/api/auth/forgot-password.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -76,25 +83,25 @@ export default function VerifyCode() {
     <ImageBackground source={require('../../assets/images/stone.jpg')} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: T.card }]}>
           <View style={styles.logoRow}>
-            <Text style={styles.logoEzy}>Ezy</Text>
+            <Text style={[styles.logoEzy, { color: T.text }]}>Ezy</Text>
             <View style={styles.logoOOm}>
               <View style={styles.circle} />
               <View style={[styles.circle, styles.circleOverlap]} />
             </View>
-            <Text style={styles.logoM}>m</Text>
+            <Text style={[styles.logoM, { color: T.text }]}>m</Text>
           </View>
-          <Text style={styles.tagline}>Stock & Delivery</Text>
+          <Text style={[styles.tagline, { color: T.sub }]}>Stock & Delivery</Text>
 
           <View style={styles.iconBox}>
             <Ionicons name="mail-open" size={36} color="#29B6D8" />
           </View>
 
           <Text style={styles.title}>Vérification</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: T.sub }]}>
             Un code à 6 chiffres a été envoyé à{'\n'}
-            <Text style={styles.emailHighlight}>{email}</Text>
+            <Text style={[styles.emailHighlight, { color: T.text }]}>{email}</Text>
           </Text>
 
           {!!error && (
@@ -109,7 +116,7 @@ export default function VerifyCode() {
               <TextInput
                 key={i}
                 ref={r => inputs.current[i] = r}
-                style={[styles.otpInput, digit ? styles.otpFilled : null]}
+                style={[styles.otpInput, { borderColor: T.border, backgroundColor: T.searchBg, color: T.text }, digit ? styles.otpFilled : null]}
                 value={digit}
                 onChangeText={val => handleChange(val, i)}
                 onKeyPress={e => handleKeyPress(e, i)}
@@ -131,9 +138,9 @@ export default function VerifyCode() {
             </LinearGradient>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: T.border }]} />
 
-          <Text style={styles.resendText}>Vous n'avez pas reçu le code ?</Text>
+          <Text style={[styles.resendText, { color: T.sub }]}>Vous n'avez pas reçu le code ?</Text>
           <TouchableOpacity onPress={handleResend} disabled={resendLoading}>
             {resendLoading
               ? <ActivityIndicator size="small" color="#29B6D8" />
@@ -141,8 +148,8 @@ export default function VerifyCode() {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={16} color="#8A9AAA" />
-            <Text style={styles.backText}>Retour</Text>
+            <Ionicons name="arrow-back" size={16} color={T.sub} />
+            <Text style={[styles.backText, { color: T.sub }]}>Retour</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

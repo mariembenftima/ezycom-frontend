@@ -13,50 +13,47 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { API_URL } from '../../../../config';
+import api from '../../../../utils/api';
 import { loadSession } from '../../../../utils/auth';
+import { loadDarkMode, saveDarkMode } from '../../../../utils/darkMode';
+import { DARK_BG, TEAL } from '../../../../utils/theme';
 import AppFooter from '../../../components/AppFooter';
 import AppHeader from '../../../components/AppHeader';
 
-const TEAL = '#29B6D8';
-const DARK_BG = '#0F1B2D';
-
 export default function HistoriqueProduitScreen() {
   const { id, nom } = useLocalSearchParams();
-  const [session, setSession]     = useState(null);
-  const [darkMode, setDarkMode]   = useState(false);
-  const [loading, setLoading]     = useState(true);
-  const [mouvements, setMouvements] = useState([]);
-  const [total, setTotal]         = useState(0);
-  const [page, setPage]           = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [limit]                   = useState(4);
-  const [search, setSearch]       = useState('');
+  const [session,     setSession]     = useState(null);
+  const [darkMode,    setDarkMode]    = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [mouvements,  setMouvements]  = useState([]);
+  const [total,       setTotal]       = useState(0);
+  const [page,        setPage]        = useState(1);
+  const [totalPages,  setTotalPages]  = useState(1);
+  const [limit]                       = useState(4);
+  const [search,      setSearch]      = useState('');
 
-  const bg   = darkMode ? DARK_BG  : '#EEF4F8';
-  const card = darkMode ? '#1A2A3D' : '#FFFFFF';
-  const txt  = darkMode ? '#FFFFFF' : '#0D1B2A';
-  const sub  = darkMode ? '#8899AA' : '#6A7A8A';
+  const bg     = darkMode ? DARK_BG    : '#EEF4F8';
+  const card   = darkMode ? '#1A2A3D'  : '#FFFFFF';
+  const txt    = darkMode ? '#FFFFFF'  : '#0D1B2A';
+  const sub    = darkMode ? '#8899AA'  : '#6A7A8A';
+  const border = darkMode ? '#2E4060'  : '#CBD5E0';
+  const chipBg = darkMode ? '#243347'  : '#F0F4F8';
+
+  useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
   useEffect(() => {
     loadSession().then(s => {
       setSession(s);
-      if (s && id) fetchHistorique(s.token, 1);
+      if (s && id) fetchHistorique(1);
     });
-  }, []);
+  }, [id]);
 
-  const authHeaders = token => ({ 'X-Token': token, 'Content-Type': 'application/json' });
-
-  const fetchHistorique = async (token, p = 1, q = search) => {
+  const fetchHistorique = async (p = 1, q = search) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: p, limit });
       if (q) params.append('search', q);
-
-      const res = await fetch(`${API_URL}/api/products/produits/products-historique.php?id=${id}&${params}`, {
-        headers: authHeaders(token),
-      });
-      const json = await res.json();
+      const json = await api.get(`/api/products/produits/products-historique.php?id=${id}&${params}`);
       if (json.success) {
         setMouvements(json.data?.mouvements ?? []);
         setTotal(json.data?.total ?? 0);
@@ -64,7 +61,7 @@ export default function HistoriqueProduitScreen() {
         setPage(p);
       }
     } catch (_) {
-      Alert.alert('Erreur', 'Impossible de charger l\'historique.');
+      Alert.alert('Erreur', "Impossible de charger l'historique.");
     } finally {
       setLoading(false);
     }
@@ -81,10 +78,7 @@ export default function HistoriqueProduitScreen() {
   const MotifBadge = ({ motif }) => {
     const isEntree = motif == '1' || motif === 'Entrée stock';
     return (
-      <View style={[
-        styles.badge,
-        { backgroundColor: isEntree ? '#E8F8F0' : '#FDEDEC', borderColor: isEntree ? '#A9DFBF' : '#F1948A' },
-      ]}>
+      <View style={[styles.badge, { backgroundColor: isEntree ? '#E8F8F0' : '#FDEDEC', borderColor: isEntree ? '#A9DFBF' : '#F1948A' }]}>
         <Text style={[styles.badgeTxt, { color: isEntree ? '#27AE60' : '#E74C3C' }]}>
           {isEntree ? 'Entrée stock' : 'Sortie de stock'}
         </Text>
@@ -102,19 +96,12 @@ export default function HistoriqueProduitScreen() {
         </Text>
         <View style={styles.paginationBtns}>
           {pages.map(p => (
-            <TouchableOpacity
-              key={p}
-              style={[styles.pageBtn, p === page && { backgroundColor: TEAL }]}
-              onPress={() => fetchHistorique(session.token, p)}
-            >
+            <TouchableOpacity key={p} style={[styles.pageBtn, { backgroundColor: chipBg }, p === page && { backgroundColor: TEAL }]} onPress={() => fetchHistorique(p)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={{ color: p === page ? '#fff' : txt, fontWeight: '600' }}>{p}</Text>
             </TouchableOpacity>
           ))}
           {page < totalPages && (
-            <TouchableOpacity
-              style={styles.pageBtn}
-              onPress={() => fetchHistorique(session.token, page + 1)}
-            >
+            <TouchableOpacity style={[styles.pageBtn, { backgroundColor: chipBg }]} onPress={() => fetchHistorique(page + 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={{ color: txt, fontWeight: '600' }}>›</Text>
             </TouchableOpacity>
           )}
@@ -128,7 +115,7 @@ export default function HistoriqueProduitScreen() {
       <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
       <AppHeader
         session={session} darkMode={darkMode}
-        onToggleDark={() => setDarkMode(d => !d)}
+        onToggleDark={() => { const next = !darkMode; setDarkMode(next); saveDarkMode(next); }}
         onLogout={() => router.replace('/(auth)/login')}
       />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -143,26 +130,26 @@ export default function HistoriqueProduitScreen() {
           {nom ? <Text style={[styles.prodNomTxt, { color: TEAL }]}>{nom}</Text> : null}
 
           <View style={styles.filterRow}>
-            <View style={[styles.limitBox, { borderColor: '#CBD5E0' }]}>
+            <View style={[styles.limitBox, { borderColor: border }]}>
               <Text style={{ color: txt, fontSize: 13 }}>{limit}</Text>
               <Ionicons name="chevron-down" size={13} color={sub} />
             </View>
             <Text style={[styles.filterLabel, { color: sub }]}>entries per page</Text>
-            <View style={[styles.searchBox, { borderColor: '#CBD5E0', backgroundColor: card }]}>
+            <View style={[styles.searchBox, { borderColor: border, backgroundColor: card }]}>
               <TextInput
                 style={[styles.searchInput, { color: txt }]}
                 placeholder="Search..."
                 placeholderTextColor={sub}
                 value={search}
                 onChangeText={setSearch}
-                onSubmitEditing={() => fetchHistorique(session?.token, 1)}
+                onSubmitEditing={() => fetchHistorique(1)}
                 returnKeyType="search"
               />
               <Ionicons name="search-outline" size={16} color={sub} />
             </View>
           </View>
 
-          <View style={[styles.colHeader, { borderBottomColor: '#E2E8F0' }]}>
+          <View style={[styles.colHeader, { borderBottomColor: border }]}>
             <Text style={[styles.colTxt, { color: sub, flex: 2 }]}>Date</Text>
             <Text style={[styles.colTxt, { color: sub, flex: 2 }]}>Motif</Text>
             <Text style={[styles.colTxt, { color: sub, flex: 2.5 }]}>Raison</Text>
@@ -175,14 +162,10 @@ export default function HistoriqueProduitScreen() {
             <Text style={[styles.emptyTxt, { color: sub }]}>Aucun mouvement de stock trouvé.</Text>
           ) : (
             mouvements.map(m => (
-              <View key={m.id} style={[styles.mvtRow, { borderBottomColor: '#E2E8F0' }]}>
+              <View key={m.id} style={[styles.mvtRow, { borderBottomColor: border }]}>
                 <Text style={[styles.dateTxt, { color: txt, flex: 2 }]}>{formatDate(m.date)}</Text>
-                <View style={{ flex: 2 }}>
-                  <MotifBadge motif={m.motif} />
-                </View>
-                <Text style={[styles.raisonTxt, { color: txt, flex: 2.5 }]} numberOfLines={2}>
-                  {m.raison || '—'}
-                </Text>
+                <View style={{ flex: 2 }}><MotifBadge motif={m.motif} /></View>
+                <Text style={[styles.raisonTxt, { color: txt, flex: 2.5 }]} numberOfLines={2}>{m.raison || '—'}</Text>
                 <Text style={[styles.qteTxt, { color: txt, flex: 0.8 }]}>{m.qte}</Text>
               </View>
             ))
@@ -191,7 +174,7 @@ export default function HistoriqueProduitScreen() {
           <Pagination />
         </View>
       </ScrollView>
-      <AppFooter />
+      <AppFooter darkMode={darkMode} />
     </SafeAreaView>
   );
 }

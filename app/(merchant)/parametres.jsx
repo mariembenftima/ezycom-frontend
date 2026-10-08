@@ -18,17 +18,12 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API_URL } from '../../config';
+import api from '../../utils/api';
 import { loadSession } from '../../utils/auth';
 import { loadDarkMode, saveDarkMode } from '../../utils/darkMode';
+import { DARK, LIGHT, TEAL, TEAL_BG } from '../../utils/theme';
 import AppFooter from '../components/AppFooter';
 import AppHeader from '../components/AppHeader';
-
-const TEAL    = '#29B6D8';
-const TEAL_BG = '#E8F8FC';
-
-const LIGHT = { bg: '#F9FAFB', card: '#fff', border: '#E5E7EB', text: '#111827', sub: '#6B7280', input: '#F9FAFB', inputDisabled: '#F3F4F6' };
-const DARK  = { bg: '#0A1525', card: '#0F2035', border: '#1E3A50', text: '#E2EEF8', sub: '#5A8A9A', input: '#152D42', inputDisabled: '#0A1525' };
 
 const PLAN_COLORS = {
     GRATUIT:    { bg: '#E8EEF4', text: '#6A7A8A' },
@@ -52,10 +47,12 @@ const Field = ({ label, value, onChangeText, placeholder, keyboardType = 'defaul
     </View>
 );
 
+const LIGHT_EXT = { ...LIGHT, input: '#F9FAFB', inputDisabled: '#F3F4F6' };
+const DARK_EXT  = { ...DARK,  input: '#152D42', inputDisabled: '#0A1525' };
+
 export default function ParametresScreen() {
     const [session,      setSession]      = useState(null);
     const [darkMode,     setDarkMode]     = useState(false);
-    const [token,        setToken]        = useState(null);
     const [loading,      setLoading]      = useState(true);
     const [saving,       setSaving]       = useState(false);
     const [bioAvailable, setBioAvailable] = useState(false);
@@ -70,7 +67,8 @@ export default function ParametresScreen() {
     const [cityModal,  setCityModal]  = useState(false);
     const [citySearch, setCitySearch] = useState('');
 
-    const T = darkMode ? DARK : LIGHT;
+    const T = darkMode ? DARK_EXT : LIGHT_EXT;
+    const isCommercant = session?.user?.role === 'commercant' || session?.role === 'commercant';
 
     useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
@@ -80,8 +78,8 @@ export default function ParametresScreen() {
         (async () => {
             const s = await loadSession();
             if (!s?.token) { router.replace('/(auth)/login'); return; }
-            setSession(s); setToken(s.token);
-            await Promise.all([fetchProfil(s.token), fetchVilles()]);
+            setSession(s);
+            await Promise.all([fetchProfil(), fetchVilles()]);
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
             const enrolled    = await LocalAuthentication.isEnrolledAsync();
             setBioAvailable(hasHardware && enrolled);
@@ -90,11 +88,10 @@ export default function ParametresScreen() {
         })();
     }, []));
 
-    const fetchProfil = async (tok) => {
+    const fetchProfil = async () => {
         setLoading(true);
         try {
-            const res  = await fetch(`${API_URL}/api/parametres/get.php`, { headers: { 'X-Token': tok } });
-            const data = await res.json();
+            const data = await api.get('/api/parametres/get.php');
             if (data.success) {
                 const p = data.data.profil;
                 setForm({ boutique: p.boutique||'', nom: p.nom||'', prenom: p.prenom||'', email: p.email||'', tel: p.tel||'', adresse: p.adresse||'', ville: p.ville_id||null, villeLabel: p.ville_nom||'', pack_nom: p.pack_nom||'' });
@@ -105,8 +102,7 @@ export default function ParametresScreen() {
 
     const fetchVilles = async () => {
         try {
-            const res  = await fetch(`${API_URL}/api/villes/villes-list.php`);
-            const data = await res.json();
+            const data = await api.get('/api/villes/villes-list.php');
             if (data.success) setVilles(data.data);
         } catch (_) {}
     };
@@ -117,15 +113,13 @@ export default function ParametresScreen() {
         }
         setSaving(true);
         try {
-            const res  = await fetch(`${API_URL}/api/parametres/update.php`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Token': token },
-                body: JSON.stringify({ boutique: form.boutique, nom: form.nom, prenom: form.prenom, tel: form.tel, adresse: form.adresse, ville: form.ville }),
+            const data = await api.put('/api/parametres/update.php', {
+                boutique: form.boutique, nom: form.nom, prenom: form.prenom,
+                tel: form.tel, adresse: form.adresse, ville: form.ville,
             });
-            const data = await res.json();
             if (data.success) Alert.alert('Succès', 'Profil mis à jour avec succès.');
             else Alert.alert('Erreur', data.message || 'Mise à jour échouée.');
-        } catch (_) { Alert.alert('Erreur', 'Impossible de contacter le serveur.'); }
+        } catch (e) { Alert.alert('Erreur', e.message || 'Impossible de contacter le serveur.'); }
         finally { setSaving(false); }
     };
 
@@ -159,6 +153,15 @@ export default function ParametresScreen() {
             ) : (
                 <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
+                    {!isCommercant && (
+                        <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, padding: 12, marginHorizontal: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Ionicons name="information-circle-outline" size={18} color="#92400E" />
+                            <Text style={{ color: '#92400E', fontSize: 13, flex: 1 }}>
+                                Les paramètres du compte sont en lecture seule. Contactez le propriétaire pour toute modification.
+                            </Text>
+                        </View>
+                    )}
+
                     <View style={styles.avatarBlock}>
                         <View style={styles.avatar}>
                             <Text style={styles.avatarText}>{(form.prenom?.[0] || '?').toUpperCase()}</Text>
@@ -173,34 +176,40 @@ export default function ParametresScreen() {
                         <Text style={[styles.sectionTitle, { color: T.text }]}>
                             <Ionicons name="storefront-outline" size={14} color={TEAL} /> Informations boutique
                         </Text>
-                        <Field label="Nom de la boutique *" value={form.boutique} onChangeText={v => updateField('boutique', v)} T={T} />
+                        <Field label="Nom de la boutique *" value={form.boutique} onChangeText={v => updateField('boutique', v)} editable={isCommercant} T={T} />
                     </View>
 
                     <View style={[styles.section, { backgroundColor: T.card, borderColor: T.border }]}>
                         <Text style={[styles.sectionTitle, { color: T.text }]}>
                             <Ionicons name="person-outline" size={14} color={TEAL} /> Informations personnelles
                         </Text>
-                        <Field label="Prénom *"  value={form.prenom} onChangeText={v => updateField('prenom', v)} T={T} />
-                        <Field label="Nom *"     value={form.nom}    onChangeText={v => updateField('nom', v)}    T={T} />
+                        <Field label="Prénom *"  value={form.prenom} onChangeText={v => updateField('prenom', v)} editable={isCommercant} T={T} />
+                        <Field label="Nom *"     value={form.nom}    onChangeText={v => updateField('nom', v)}    editable={isCommercant} T={T} />
                         <Field label="Email"     value={form.email}  editable={false} T={T} />
-                        <Field label="Téléphone *" value={form.tel}  onChangeText={v => updateField('tel', v)} keyboardType="phone-pad" T={T} />
+                        <Field label="Téléphone *" value={form.tel}  onChangeText={v => updateField('tel', v)} keyboardType="phone-pad" editable={isCommercant} T={T} />
                     </View>
 
                     <View style={[styles.section, { backgroundColor: T.card, borderColor: T.border }]}>
                         <Text style={[styles.sectionTitle, { color: T.text }]}>
                             <Ionicons name="location-outline" size={14} color={TEAL} /> Adresse
                         </Text>
-                        <Field label="Adresse" value={form.adresse} onChangeText={v => updateField('adresse', v)} T={T} />
+                        <Field label="Adresse" value={form.adresse} onChangeText={v => updateField('adresse', v)} editable={isCommercant} T={T} />
                         <Text style={[styles.fieldLabel, { color: T.sub }]}>Ville</Text>
-                        <TouchableOpacity style={[styles.cityBtn, { backgroundColor: T.input, borderColor: T.border }]} onPress={() => setCityModal(true)} activeOpacity={0.7}>
+                        <TouchableOpacity
+                            style={[styles.cityBtn, { backgroundColor: T.input, borderColor: T.border, opacity: isCommercant ? 1 : 0.5 }]}
+                            onPress={() => { if (isCommercant) setCityModal(true); }}
+                            disabled={!isCommercant}
+                            activeOpacity={0.7}>
                             <Text style={{ fontSize: 14, color: form.villeLabel ? T.text : T.sub }}>{form.villeLabel || 'Sélectionner une ville'}</Text>
                             <Ionicons name="chevron-down" size={16} color={T.sub} />
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
-                        {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Enregistrer les modifications</Text>}
-                    </TouchableOpacity>
+                    {isCommercant && (
+                        <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
+                            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Enregistrer les modifications</Text>}
+                        </TouchableOpacity>
+                    )}
 
                     <View style={[styles.section, { backgroundColor: T.card, borderColor: T.border }]}>
                         <Text style={[styles.sectionTitle, { color: T.text }]}>

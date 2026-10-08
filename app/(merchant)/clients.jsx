@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -13,22 +13,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API_URL } from '../../config';
+import api from '../../utils/api';
 import { loadSession } from '../../utils/auth';
 import { loadDarkMode, saveDarkMode } from '../../utils/darkMode';
+import { DARK, LIGHT, TEAL, TEAL_BG } from '../../utils/theme';
 import AppFooter from '../components/AppFooter';
 import AppHeader from '../components/AppHeader';
 
-const TEAL    = '#29B6D8';
-const TEAL_BG = '#E8F8FC';
-
-const LIGHT = { bg: '#F9FAFB', card: '#fff', border: '#E5E7EB', text: '#111827', sub: '#6B7280', statBg: '#F3F4F6', searchBg: '#F3F4F6' };
-const DARK  = { bg: '#0A1525', card: '#0F2035', border: '#1E3A50', text: '#E2EEF8', sub: '#5A8A9A', statBg: '#152D42', searchBg: '#152D42' };
-
-const ClientCard = ({ item, T }) => {
-    const nom   = [item.nom, item.prenom].filter(Boolean).join(' ') || 'Client inconnu';
+const ClientCard = memo(({ item, T }) => {
+    const nom = [item.nom, item.prenom].filter(Boolean).join(' ') || 'Client inconnu';
     const total = item.total_achats ? `${parseFloat(item.total_achats).toFixed(3)} TND` : '0.000 TND';
-    const date  = item.derniere_commande
+    const date = item.derniere_commande
         ? new Date(item.derniere_commande).toLocaleDateString('fr-FR') : '—';
 
     return (
@@ -79,24 +74,26 @@ const ClientCard = ({ item, T }) => {
             <Text style={[styles.cardDate, { color: T.sub }]}>Dernière commande : {date}</Text>
         </View>
     );
-};
+});
 
 export default function ClientsScreen() {
-    const [session,     setSession]     = useState(null);
-    const [darkMode,    setDarkMode]    = useState(false);
-    const [token,       setToken]       = useState(null);
-    const [clients,     setClients]     = useState([]);
-    const [stats,       setStats]       = useState({});
-    const [loading,     setLoading]     = useState(true);
-    const [refreshing,  setRefreshing]  = useState(false);
-    const [search,      setSearch]      = useState('');
-    const [page,        setPage]        = useState(1);
-    const [hasMore,     setHasMore]     = useState(true);
+    const [session, setSession] = useState(null);
+    const [darkMode, setDarkMode] = useState(false);
+    const [clients, setClients] = useState([]);
+    const [stats, setStats] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
 
     const T = darkMode ? DARK : LIGHT;
 
     useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
+
+    const lastFetchRef = useRef(0);
+    const MIN_REFRESH_INTERVAL_MS = 3000;
 
     useFocusEffect(
         useCallback(() => {
@@ -104,20 +101,21 @@ export default function ClientsScreen() {
                 const s = await loadSession();
                 if (!s?.token) { router.replace('/(auth)/login'); return; }
                 setSession(s);
-                setToken(s.token);
-                fetchClients(s.token, 1, '');
+                const now = Date.now();
+                if (now - lastFetchRef.current < MIN_REFRESH_INTERVAL_MS) return;
+                lastFetchRef.current = now;
+                fetchClients(1, '');
             })();
         }, [])
     );
 
-    const fetchClients = async (tok, p = 1, q = search, append = false) => {
+    const fetchClients = async (p = 1, q = search, append = false) => {
         if (!append) setLoading(true);
         else setLoadingMore(true);
         try {
-            let url = `${API_URL}/api/clients/list.php?page=${p}&limit=20`;
-            if (q) url += `&search=${encodeURIComponent(q)}`;
-            const res  = await fetch(url, { headers: { 'X-Token': tok } });
-            const data = await res.json();
+            let path = `/api/clients/list.php?page=${p}&limit=20`;
+            if (q) path += `&search=${encodeURIComponent(q)}`;
+            const data = await api.get(path);
             if (data.success) {
                 const list = Array.isArray(data.data?.clients) ? data.data.clients : [];
                 setClients(prev => append ? [...prev, ...list] : list);
@@ -125,15 +123,19 @@ export default function ClientsScreen() {
                 setHasMore(p < (data.data?.pages || 1));
                 setPage(p);
             }
-        } catch (e) { console.log('CLIENTS ERROR:', e); }
+        } catch (e) {
+            console.error('Erreur chargement:', e.message);
+        }
         finally { setLoading(false); setLoadingMore(false); setRefreshing(false); }
     };
 
-    const onRefresh      = () => { setRefreshing(true); fetchClients(token, 1, search); };
-    const onSearchChange = (q) => { setSearch(q); if (q.length === 0 || q.length >= 3) fetchClients(token, 1, q); };
-    const loadMore       = () => { if (!hasMore || loadingMore) return; fetchClients(token, page + 1, search, true); };
+    const onRefresh = () => { setRefreshing(true); fetchClients(1, search); };
+    const onSearchChange = (q) => { setSearch(q); if (q.length === 0 || q.length >= 3) fetchClients(1, q); };
+    const loadMore = () => { if (!hasMore || loadingMore) return; fetchClients(page + 1, search, true); };
 
     const ca = stats.chiffre_affaires ? parseFloat(stats.chiffre_affaires).toFixed(3) : '0.000';
+
+    const renderItem = useCallback(({ item }) => <ClientCard item={item} T={T} />, [T]);
 
     return (
         <SafeAreaView style={[styles.safe, { backgroundColor: T.bg }]}>
@@ -186,14 +188,14 @@ export default function ClientsScreen() {
             ) : (
                 <FlatList
                     data={clients}
-                    keyExtractor={(item, index) => item.tel || item.client_key || String(index)}
+                    keyExtractor={(item, index) => String(item.id ?? `client-${index}`)}
                     contentContainerStyle={styles.list}
                     showsVerticalScrollIndicator={false}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TEAL} />}
                     onEndReached={loadMore}
                     onEndReachedThreshold={0.3}
                     ListFooterComponent={loadingMore ? <ActivityIndicator color={TEAL} style={{ marginVertical: 12 }} /> : null}
-                    renderItem={({ item }) => <ClientCard item={item} T={T} />}
+                    renderItem={renderItem}
                 />
             )}
 
@@ -203,29 +205,29 @@ export default function ClientsScreen() {
 }
 
 const styles = StyleSheet.create({
-    safe:         { flex: 1 },
-    statsRow:     { flexDirection: 'row', gap: 8, padding: 12, borderBottomWidth: 1 },
-    statCard:     { flex: 1, borderRadius: 8, padding: 10, alignItems: 'center' },
-    statCardVal:  { fontSize: 18, fontWeight: '700' },
-    statCardLbl:  { fontSize: 10, marginTop: 2 },
-    searchRow:    { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
-    searchWrap:   { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
-    searchInput:  { flex: 1, fontSize: 13 },
-    list:         { padding: 12, gap: 10 },
-    center:       { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-    emptyText:    { fontSize: 14 },
-    card:         { borderRadius: 12, padding: 14, borderWidth: 1 },
-    cardTop:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-    avatar:       { width: 44, height: 44, borderRadius: 22, backgroundColor: TEAL_BG, alignItems: 'center', justifyContent: 'center' },
-    avatarText:   { fontSize: 18, fontWeight: '700', color: TEAL },
-    cardNom:      { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-    cardTel:      { fontSize: 12 },
-    cardVille:    { fontSize: 11, marginTop: 2 },
-    callBtn:      { width: 38, height: 38, borderRadius: 19, backgroundColor: TEAL_BG, alignItems: 'center', justifyContent: 'center' },
-    cardStats:    { flexDirection: 'row', alignItems: 'center', borderRadius: 8, padding: 10, marginBottom: 8 },
-    statItem:     { flex: 1, alignItems: 'center' },
-    statVal:      { fontSize: 15, fontWeight: '700' },
-    statLbl:      { fontSize: 9, marginTop: 2 },
-    statDivider:  { width: 1, height: 28 },
-    cardDate:     { fontSize: 11, textAlign: 'right' },
+    safe: { flex: 1 },
+    statsRow: { flexDirection: 'row', gap: 8, padding: 12, borderBottomWidth: 1 },
+    statCard: { flex: 1, borderRadius: 8, padding: 10, alignItems: 'center' },
+    statCardVal: { fontSize: 18, fontWeight: '700' },
+    statCardLbl: { fontSize: 10, marginTop: 2 },
+    searchRow: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+    searchInput: { flex: 1, fontSize: 13 },
+    list: { padding: 12, gap: 10 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    emptyText: { fontSize: 14 },
+    card: { borderRadius: 12, padding: 14, borderWidth: 1 },
+    cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+    avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: TEAL_BG, alignItems: 'center', justifyContent: 'center' },
+    avatarText: { fontSize: 18, fontWeight: '700', color: TEAL },
+    cardNom: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+    cardTel: { fontSize: 12 },
+    cardVille: { fontSize: 11, marginTop: 2 },
+    callBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: TEAL_BG, alignItems: 'center', justifyContent: 'center' },
+    cardStats: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, padding: 10, marginBottom: 8 },
+    statItem: { flex: 1, alignItems: 'center' },
+    statVal: { fontSize: 15, fontWeight: '700' },
+    statLbl: { fontSize: 9, marginTop: 2 },
+    statDivider: { width: 1, height: 28 },
+    cardDate: { fontSize: 11, textAlign: 'right' },
 });

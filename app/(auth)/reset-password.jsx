@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ImageBackground,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 
 import { API_URL } from '../../config';
+import { loadDarkMode } from '../../utils/darkMode';
+import { DARK, LIGHT } from '../../utils/theme';
 
 export default function ResetPassword() {
   const { email, code } = useLocalSearchParams();
@@ -21,6 +23,11 @@ export default function ResetPassword() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [darkMode, setDarkMode] = useState(false);
+
+  const T = darkMode ? DARK : LIGHT;
+
+  useEffect(() => { loadDarkMode().then(setDarkMode); }, []);
 
   const handleReset = async () => {
     if (!password || !confirm) { setError('Veuillez remplir tous les champs.'); return; }
@@ -29,7 +36,7 @@ export default function ResetPassword() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+      const res = await fetch(`${API_URL}/api/auth/reset-password.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code, password }),
@@ -64,24 +71,23 @@ export default function ResetPassword() {
     <ImageBackground source={require('../../assets/images/stone.jpg')} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.card}>
-          {/* Logo */}
+        <View style={[styles.card, { backgroundColor: T.card }]}>
           <View style={styles.logoRow}>
-            <Text style={styles.logoEzy}>Ezy</Text>
+            <Text style={[styles.logoEzy, { color: T.text }]}>Ezy</Text>
             <View style={styles.logoOOm}>
               <View style={styles.circle} />
               <View style={[styles.circle, styles.circleOverlap]} />
             </View>
-            <Text style={styles.logoM}>m</Text>
+            <Text style={[styles.logoM, { color: T.text }]}>m</Text>
           </View>
-          <Text style={styles.tagline}>Stock & Delivery</Text>
+          <Text style={[styles.tagline, { color: T.sub }]}>Stock & Delivery</Text>
 
           <View style={styles.iconBox}>
             <Ionicons name="lock-closed" size={36} color="#29B6D8" />
           </View>
 
           <Text style={styles.title}>Nouveau mot de passe</Text>
-          <Text style={styles.subtitle}>Choisissez un mot de passe sécurisé{'\n'}pour votre compte</Text>
+          <Text style={[styles.subtitle, { color: T.sub }]}>Choisissez un mot de passe sécurisé{'\n'}pour votre compte</Text>
 
           {!!error && (
             <View style={styles.errorBox}>
@@ -90,18 +96,18 @@ export default function ResetPassword() {
             </View>
           )}
 
-          <Text style={styles.label}>Nouveau mot de passe</Text>
-          <View style={styles.inputWrapper}>
+          <Text style={[styles.label, { color: T.text }]}>Nouveau mot de passe</Text>
+          <View style={[styles.inputWrapper, { backgroundColor: T.searchBg, borderColor: T.border }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: T.text }]}
               placeholder="••••••••"
-              placeholderTextColor="#B0BCC8"
+              placeholderTextColor={T.sub}
               secureTextEntry={!showPass}
               value={password}
               onChangeText={setPassword}
             />
             <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
-              <Ionicons name={showPass ? 'eye-off' : 'eye'} size={20} color="#8A9AAA" />
+              <Ionicons name={showPass ? 'eye-off' : 'eye'} size={20} color={T.sub} />
             </TouchableOpacity>
           </View>
 
@@ -124,19 +130,18 @@ export default function ResetPassword() {
             </View>
           )}
 
-          {/* Confirm Password */}
-          <Text style={styles.label}>Confirmer le mot de passe</Text>
-          <View style={styles.inputWrapper}>
+          <Text style={[styles.label, { color: T.text }]}>Confirmer le mot de passe</Text>
+          <View style={[styles.inputWrapper, { backgroundColor: T.searchBg, borderColor: T.border }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: T.text }]}
               placeholder="••••••••"
-              placeholderTextColor="#B0BCC8"
+              placeholderTextColor={T.sub}
               secureTextEntry={!showConfirm}
               value={confirm}
               onChangeText={setConfirm}
             />
             <TouchableOpacity onPress={() => setShowConfirm(p => !p)} style={styles.eyeBtn}>
-              <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color="#8A9AAA" />
+              <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color={T.sub} />
             </TouchableOpacity>
           </View>
 
@@ -164,10 +169,10 @@ export default function ResetPassword() {
             </LinearGradient>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: T.border }]} />
           <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={16} color="#8A9AAA" />
-            <Text style={styles.backText}>Retour à la connexion</Text>
+            <Ionicons name="arrow-back" size={16} color={T.sub} />
+            <Text style={[styles.backText, { color: T.sub }]}>Retour à la connexion</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
